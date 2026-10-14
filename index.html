@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="صحصح">
+<meta name="theme-color" content="#17110E">
+<title>صحصح تجريبي</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&family=Reem+Kufi:wght@400..700&display=swap">
+<style>
+/* Layout: a fixed 1920×1080 TV stage, scaled to fit any screen; one screen at a time (home → setup → lifelines → board → question → answer → end).
+   Deliberately single-theme (night-time TV game), so colours are set explicitly. */
+:root{
+  --tent:#17110E; --tent2:#1D1612; --raised:#221915; --raised2:#2A201B; --line:#3A2C24; --chip:#2C221C;
+  --wool:#F4EADB; --wool2:#D9CBB6; --dim:#A8977F; --mute:#7D6C5E; --ink:#1B1310;
+  --sand:#E9D7B5; --saffron:#EEA43A; --madder:#CF4535; --t1:#3CC0B4; --t2:#8F86F2; --bad:#F2A79C;
+  --f-ui:'Readex Pro','Noto Sans Arabic',Tahoma,sans-serif; --f-display:'Reem Kufi','Readex Pro',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:#0F0B09;color:var(--wool);font-family:var(--f-ui);overflow:hidden;-webkit-text-size-adjust:100%}
+#viewport{position:fixed;top:env(safe-area-inset-top,0px);right:env(safe-area-inset-right,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#stage{width:1920px;height:1080px;flex:none;transform-origin:center center;background:var(--tent);position:relative;overflow:hidden;line-height:1.5}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button:disabled{cursor:default}
+button:focus-visible,input:focus-visible{outline:5px solid var(--wool);outline-offset:4px}
+.screen{position:absolute;inset:0;padding:40px 56px;display:flex;flex-direction:column;gap:24px}
+.disp{font-family:var(--f-display);font-weight:700;line-height:1.3}
+.sadu{height:14px;background:conic-gradient(from 135deg at 50% 0,var(--madder) 90deg,#0000 0) 0 0/28px 14px repeat-x var(--wool)}
+.band{display:flex;flex-direction:column}.band i{display:block;height:3px;background:var(--saffron)}
+.pips{display:flex;gap:9px}.pips span{width:11px;height:11px;transform:rotate(45deg);background:currentColor}
+.btn{border:0;border-radius:22px;background:var(--saffron);color:var(--ink);font-family:var(--f-display);font-weight:700;font-size:32px;min-height:84px;padding:0 44px;transition:transform .15s ease}
+@media (hover:hover){.btn:not(:disabled):hover{transform:translateY(-3px)}.tile:not(:disabled):hover{transform:scale(1.04)}}
+.btn:disabled{background:var(--chip);color:var(--dim)}
+.btn.ghost{background:var(--raised);border:2px solid var(--line);color:var(--wool)}
+.small{font-size:19px;min-height:56px;padding:0 22px;border-radius:14px;font-family:var(--f-ui);font-weight:500}
+.steps{display:flex;gap:14px;font-size:20px}.steps span{padding:8px 18px;border-radius:99px;border:1px solid var(--line);color:var(--dim)}.steps span.on{background:var(--saffron);border-color:var(--saffron);color:var(--ink);font-weight:600}
+.row{display:flex;align-items:center;gap:16px}
+.spacer{flex:1}
+.panel{border-radius:26px;background:var(--raised);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.ll{width:50px;height:50px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--chip);color:var(--wool);border:2px solid transparent;position:relative;font-family:var(--f-display);font-weight:700;font-size:16px;padding:0}
+.ll.armed{border-color:var(--saffron);background:var(--saffron);color:var(--ink)}
+.ll.used{opacity:.35}
+.ll.used::after{content:'';position:absolute;width:56px;height:3px;background:var(--madder);transform:rotate(-45deg)}
+.ll svg{width:26px;height:26px}
+.tile{border:0;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:var(--f-display);font-weight:700;transition:transform .15s ease}
+.tile:focus-visible{transform:scale(1.04)}
+/* Small screens (phones): the stage is scaled down a lot, so controls grow in stage pixels to stay tappable. */
+.compact .btn{min-height:130px;font-size:44px;padding:0 54px}
+.compact .small{min-height:120px;font-size:34px;padding:0 34px}
+.compact .ll{width:96px;height:96px;font-size:26px}
+.compact .ll svg{width:44px;height:44px}
+.compact .ll.used::after{width:104px}
+.compact input{height:110px!important;font-size:40px!important}
+.compact .who{min-height:200px}
+.compact .kbig,.compact kbd,.compact .hint{display:none}
+.compact .flex-h{height:auto!important}
+.t200{background:var(--sand);color:var(--ink)}.t400{background:var(--saffron);color:var(--ink)}.t600{background:var(--madder);color:var(--wool)}
+.done{background:var(--tent2);border:2px solid var(--chip);color:var(--mute)}
+.banner{border-radius:18px;border:3px solid var(--saffron);padding:10px 22px;font-size:22px;display:inline-flex;align-items:center;gap:12px}
+.bar{height:18px;border-radius:99px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;width:100%;transform-origin:right center;transition:transform 1s linear}
+.card{border-radius:20px;background:var(--raised);border:3px solid var(--line);padding:18px 20px;text-align:right;display:flex;flex-direction:column;gap:8px}
+.card[aria-pressed="true"]{background:var(--raised2)}
+.card:disabled{opacity:.5}
+.who{border-radius:26px;min-height:150px;padding:0 36px;display:flex;align-items:center;justify-content:space-between;border:3px solid var(--line);background:var(--raised);color:var(--wool);text-align:right}
+kbd{font-family:var(--f-ui);font-size:15px;padding:1px 8px;border-radius:6px;border:1px solid #4A3A2F;color:#BFAE98}
+.kbig{width:64px;height:64px;border-radius:16px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-size:34px;color:#BFAE98}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.pop{animation:pop .4s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fall{from{transform:translateY(-80px) rotate(0)}to{transform:translateY(1160px) rotate(540deg)}}
+.confetti span{position:absolute;top:0;animation:fall linear infinite both}
+#rotate{position:fixed;inset:0;z-index:20;background:var(--tent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;text-align:center}
+#rotate p{margin:0;font-size:18px;color:var(--wool2);max-width:22em}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}.confetti{display:none}}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage" dir="rtl" lang="ar"></div></div>
+<div id="rotate" dir="rtl" hidden>
+  <span class="disp" style="font-size:40px">لفّ الجهاز بالعرض</span>
+  <p>اللعبة مصممة للشاشة العرضية: تلفزيون، لابتوب، أو آيباد بالعرض.</p>
+  <button class="btn small" id="rotate-ok" type="button">كمّل كذا</button>
+</div>
+
+<script>
+const BANK = /*__BANK__*/null;
+const DATA = BANK || sampleBank();
+
+// Public test build: the worked examples from content/STYLE_GUIDE.md plus clearly marked placeholders.
+// No question from the real bank ever ships in this page.
+function sampleBank() {
+  const cats = [
+    { slug: 'saudi', name: 'السعودية', desc: 'كل شي عن بلدنا' },
+    { slug: 'national', name: 'المنتخب السعودي', desc: 'الأخضر في كأس العالم وآسيا' },
+    { slug: 'proverbs', name: 'أمثال شعبية', desc: 'أكمل المثل… واعرف قصته' },
+    { slug: 'gk', name: 'معلومات عامة', desc: 'شوي من كل شي' },
+    { slug: 'nostalgia', name: 'جيل الطيبين', desc: 'المدرسة والبقالة وتلفزيون زمان' },
+    { slug: 'got', name: 'صراع العروش', desc: 'العائلات والتنانين والعرش' }
+  ];
+  const real = [
+    { category: 'national', tier: 200, prompt: 'من سجّل هدف الفوز للمنتخب السعودي في مرمى الأرجنتين في مونديال 2022؟', answer: 'سالم الدوسري', accepted: ['الدوسري', 'سالم'] },
+    { category: 'national', tier: 400, prompt: 'من سجّل هدف التعادل السعودي الأول في مرمى الأرجنتين في مونديال 2022؟', answer: 'صالح الشهري', accepted: ['الشهري', 'صالح'] },
+    { category: 'national', tier: 600, prompt: 'في أي ملعب أُقيمت مباراة السعودية والأرجنتين الشهيرة في مونديال 2022؟', answer: 'استاد لوسيل', accepted: ['لوسيل', 'ملعب لوسيل'] },
+    { category: 'saudi', tier: 200, prompt: 'في أي مدينة سعودية تقع نافورة الملك فهد، أطول نافورة من نوعها في العالم؟', answer: 'جدة', accepted: [] },
+    { category: 'saudi', tier: 400, prompt: 'مدينة سعودية تقع على جبال السروات، يُقام فيها مهرجان سنوي للورد، وتُلقّب بـ"مدينة الورد". ما هي؟', answer: 'الطائف', accepted: [] },
+    { category: 'saudi', tier: 400, prompt: 'كم يبلغ طول جسر الملك فهد الذي يربط السعودية بالبحرين تقريباً؟', answer: '25 كم', accepted: [], note: '±3 كم' },
+    { category: 'proverbs', tier: 200, prompt: 'أكمل المثل: اللي ما يعرف الصقر…', answer: 'يشويه', accepted: [] }
+  ];
+  const questions = [];
+  const reserve = [];
+  let n = 0;
+  for (const c of cats) for (const tier of [200, 400, 600]) {
+    const mine = real.filter((r) => r.category === c.slug && r.tier === tier).map((r) => ({ ...r, id: 'r' + n++ }));
+    while (mine.length < 3) {
+      mine.push({ id: 's' + n++, category: c.slug, tier, prompt: `سؤال تجريبي من «${c.name}» على ${tier} نقطة، بطول سؤال حقيقي عشان تشوفون شكل النص على التلفزيون. وش الجواب؟`, answer: `جواب تجريبي ${mine.length + 1}`, accepted: [] });
+    }
+    questions.push(...mine.slice(0, 2));
+    reserve.push(...mine.slice(2));
+  }
+  return { label: 'أسئلة أمثلة', categories: cats, questions, reserve };
+}
+const SOON = ['كرة قدم عالمية', 'جيل الطيبين', 'أمثال شعبية', 'انمي', 'فن خليجي', 'دول وعواصم', 'أكلات سعودية', 'ألعاب فيديو', 'صراع العروش', 'أغاني', 'مسيرة لاعب', 'القرآن الكريم'];
+const LL = {
+  double: { name: 'دبّلها', when: 'before', scoring: true, mult: 2, glyph: '×2', rule: 'إذا جاوبتوا صح، نقاط السؤال تنضاعف' },
+  hole: { name: 'الحفرة', when: 'before', scoring: true, d: ['M4 18c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z', 'M12 3v9M8.5 8.5L12 12l3.5-3.5'], rule: 'إذا جاوبتوا صح، الفريق الثاني ينخصم منه نفس النقاط' },
+  elder: { name: 'كلمة الكبير', when: 'before', scoring: true, mult: 1.5, glyph: '×1.5', rule: 'أكبر واحد فيكم يجاوب لحاله، وإذا صح ×1.5' },
+  warrit: { name: 'ورّطه', when: 'before', d: ['M14 4h6v6', 'M20 4l-9 9M18 14v6H4V6h6'], rule: 'الفريق الثاني يجاوب خانتكم، وإذا غلط النقاط لكم' },
+  red: { name: 'الكرت الأحمر', when: 'opponent', d: ['M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'], rule: 'على دور الخصم: تختارون لاعب منهم يجاوب لحاله' },
+  two: { name: 'جوابين', when: 'after', d: ['M2 12.5l4 4 7.5-8.5', 'M11.5 15l1.5 1.5 9-10'], rule: 'بعد ما تشوفون السؤال: محاولتين بدل وحدة' },
+  swap: { name: 'بدّلها', when: 'after', d: ['M4 8h13l-3-3', 'M20 16H7l3 3'], rule: 'بعد ما تشوفون السؤال: سؤال ثاني من نفس الفئة والنقاط' }
+};
+const TEAM_COLORS = ['var(--t1)', 'var(--t2)'];
+const FS_OK = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const SAVE_KEY = 'sahsah-play-v1';
+const CAT_LIMIT = Math.min(6, DATA.categories.length);
+
+let S = null;        // game state
+let timer = null;
+const stage = document.getElementById('stage');
+
+function fresh(names) {
+  return {
+    screen: 'setup', teams: [0, 1].map((i) => ({ name: (names && names[i]) || (i ? 'البنات' : 'الشباب'), score: 0, ll: [], used: [], correct: 0, steals: 0 })),
+    picks: [], tiles: [], turn: 0, armed: null, red: false, cur: null, settings: { qTime: 60, sTime: 15 },
+    usedQ: [], history: [], confirmEnd: false, pen: null
+  };
+}
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
+function load() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { return null; } }
+function snapshot() { const { history, ...rest } = S; S.history = [...history.slice(-19), JSON.stringify(rest)]; }
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const catName = (slug) => (DATA.categories.find((c) => c.slug === slug) || {}).name || slug;
+const q = (id) => DATA.questions.find((x) => x.id === id) || DATA.reserve.find((x) => x.id === id);
+const other = (t) => 1 - t;
+const pips = (t) => `<span class="pips">${'<span></span>'.repeat(t / 200)}</span>`;
+function icon(id, size) {
+  const l = LL[id];
+  if (l.glyph) return `<span style="font-size:${size || 16}px">${l.glyph}</span>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${l.d.map((d) => `<path d="${d}"></path>`).join('')}</svg>`;
+}
+function band() { return '<div class="band" aria-hidden="true"><i></i><div class="sadu"></div><i></i></div>'; }
+function steps(n) { return `<div class="steps">${['الفرق والفئات', 'وسائل المساعدة', 'يلا نلعب'].map((s, i) => `<span class="${i + 1 === n ? 'on' : ''}">${i + 1} ${s}</span>`).join('')}</div>`; }
+
+// ---- screens -----------------------------------------------------------------
+const screens = {
+  home() {
+    const saved = load();
+    const live = saved && saved.screen !== 'end' && saved.tiles && saved.tiles.length;
+    return `<div class="screen" style="padding:0;gap:0">${band()}
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;text-align:center">
+        <div class="row" aria-hidden="true" style="gap:16px"><span style="width:30px;height:30px;transform:rotate(45deg);background:var(--sand)"></span><span style="width:30px;height:30px;transform:rotate(45deg);background:var(--saffron)"></span><span style="width:30px;height:30px;transform:rotate(45deg);background:var(--madder)"></span></div>
+        <h1 class="disp" style="margin:0;font-size:160px">صحصح</h1>
+        <p style="margin:0;font-size:30px;color:var(--wool2)">لعبة أسئلة للجمعة · نسخة تجريبية</p>
+        <div class="row" style="gap:20px">
+          <button class="btn" data-a="new" type="button">لعبة جديدة</button>
+          ${live ? '<button class="btn ghost" data-a="resume" type="button">كمّل اللعبة</button>' : ''}
+        </div>
+        <p style="margin:0;font-size:20px;color:var(--dim);max-width:1150px">${BANK ? `فيها ${DATA.questions.length} سؤال من ${esc(DATA.label)} في ${DATA.categories.length} فئات.` : 'نسخة لتجربة طريقة اللعب: أغلب الأسئلة أمثلة شكلية، والأسئلة الحقيقية المدققة تنضاف بعدين.'} جهاز واحد متوصّل بالتلفزيون، وواحد منكم يتحكم ويلعب مع فريقه.</p>
+        ${FS_OK ? '<button class="btn ghost small" data-a="fullscreen" type="button">ملء الشاشة</button>' : (navigator.standalone ? '' : '<p style="margin:0;font-size:20px;color:var(--dim)">على الآيفون: زر المشاركة ثم «إضافة إلى الشاشة الرئيسية» عشان تفتح ملء الشاشة بدون شريط المتصفح.</p>')}
+      </div></div>`;
+  },
+
+  setup() {
+    const n = [0, 1].map((t) => S.picks.filter((p) => p.team === t).length);
+    const done = S.picks.length >= CAT_LIMIT;
+    const turn = n[0] <= n[1] ? 0 : 1;
+    const cards = DATA.categories.map((c) => {
+      const p = S.picks.find((x) => x.slug === c.slug);
+      const left = Math.floor(DATA.questions.filter((x) => x.category === c.slug).length / 6);
+      const border = p ? TEAM_COLORS[p.team] : 'var(--line)';
+      return `<button class="card" type="button" data-a="pick" data-slug="${c.slug}" aria-pressed="${!!p}" ${!p && done ? 'disabled' : ''} style="border-color:${border};min-height:180px">
+        <span class="disp" style="font-size:32px">${esc(c.name)}</span>
+        <span style="font-size:18px;color:#BFAE98">${esc(c.desc || '')}</span>
+        <span class="row" style="justify-content:space-between"><span style="padding:4px 12px;border-radius:99px;background:var(--chip);font-size:16px">${BANK ? `باقي ${left} ألعاب` : 'أسئلة أمثلة'}</span>${p ? `<span style="padding:4px 12px;border-radius:99px;background:${border};color:var(--ink);font-size:16px;font-weight:600">${esc(S.teams[p.team].name)}</span>` : ''}</span>
+      </button>`;
+    }).join('') + SOON.map((s) => `<button class="card" type="button" disabled style="min-height:180px;background:var(--tent2)"><span class="disp" style="font-size:28px">${esc(s)}</span><span class="spacer"></span><span><span style="padding:4px 12px;border-radius:99px;background:var(--chip);font-size:16px;color:#BFAE98">قريباً</span></span></button>`).join('');
+    return `<div class="screen">
+      <div class="row flex-h" style="height:64px"><span class="disp" style="font-size:34px">صحصح</span>${steps(1)}<span class="spacer"></span>
+        ${[0, 1].map((t) => `<label for="name${t}" style="font-size:18px;color:var(--dim)">${t ? 'الفريق الثاني' : 'الفريق الأول'}</label><input id="name${t}" data-name="${t}" value="${esc(S.teams[t].name)}" maxlength="16" style="width:220px;height:56px;padding:0 18px;border-radius:14px;background:var(--raised);border:2px solid ${TEAM_COLORS[t]};font-family:var(--f-display);font-size:24px">`).join('')}
+      </div>
+      <div class="row" style="height:70px"><h1 class="disp" style="margin:0;font-size:48px">${done ? 'تمام، اخترتوا الفئات' : `دور <span style="color:${TEAM_COLORS[turn]}">${esc(S.teams[turn].name)}</span> يختارون`}</h1><span class="spacer"></span>
+        <span style="font-size:22px;color:var(--wool2)">${CAT_LIMIT === 6 ? 'كل فريق 3 فئات بالتناوب' : `${CAT_LIMIT} فئات بالتناوب`} · <b class="disp">${S.picks.length} من ${CAT_LIMIT}</b></span></div>
+      <div style="flex:1;overflow:auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;align-content:start;padding:4px">${cards}</div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" type="button" data-a="to-ll" ${done ? '' : 'disabled'}>${done ? 'التالي' : `باقي ${CAT_LIMIT - S.picks.length} فئات`}</button></div>
+    </div>`;
+  },
+
+  lifelines() {
+    const ready = S.teams.every((t) => t.ll.length === 3);
+    const col = (t) => {
+      const mine = S.teams[t].ll;
+      const full = mine.length >= 3;
+      return `<section style="border-radius:28px;background:var(--tent2);border:1px solid var(--chip);padding:22px 26px;display:flex;flex-direction:column;gap:14px">
+        <div class="row" style="justify-content:space-between"><h2 class="disp" style="margin:0;font-size:36px;color:${TEAM_COLORS[t]}">${esc(S.teams[t].name)}</h2><span class="disp" style="font-size:26px">${mine.length} من 3</span></div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+        ${Object.keys(LL).map((id) => {
+          const on = mine.includes(id);
+          return `<button class="card" type="button" data-a="ll-pick" data-team="${t}" data-id="${id}" aria-pressed="${on}" ${!on && full ? 'disabled' : ''} style="min-height:126px;border-color:${on ? TEAM_COLORS[t] : 'var(--line)'}">
+            <span class="row" style="gap:14px"><span class="ll" style="${on ? `background:${TEAM_COLORS[t]};color:var(--ink)` : ''}">${icon(id)}</span><span class="disp" style="font-size:26px">${LL[id].name}</span></span>
+            <span style="font-size:17px;color:#BFAE98">${LL[id].rule}</span></button>`;
+        }).join('')}</div></section>`;
+    };
+    const step = (key, label, min, max, st) => `<span style="font-size:19px;color:var(--wool2)">${label}</span>
+      <button class="ll" type="button" data-a="set" data-key="${key}" data-d="${-st}" data-min="${min}" data-max="${max}" aria-label="أنقص ${label}">−</button>
+      <span class="disp" style="font-size:26px;min-width:76px;text-align:center">${S.settings[key]} ث</span>
+      <button class="ll" type="button" data-a="set" data-key="${key}" data-d="${st}" data-min="${min}" data-max="${max}" aria-label="زِد ${label}">+</button>`;
+    return `<div class="screen">
+      <div class="row" style="height:64px"><span class="disp" style="font-size:34px">صحصح</span>${steps(2)}</div>
+      <div class="row"><h1 class="disp" style="margin:0;font-size:44px">كل فريق يختار 3 من 7</h1><span class="spacer"></span><span style="font-size:20px;color:var(--wool2)">كل وسيلة مرة وحدة · وسيلة نقاط وحدة على السؤال</span></div>
+      <div style="flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;min-height:0">${col(0)}${col(1)}</div>
+      <div class="row" style="gap:12px">${step('qTime', 'وقت السؤال', 15, 180, 15)}<span style="width:24px"></span>${step('sTime', 'وقت السرقة', 5, 60, 5)}<span class="spacer"></span>
+        <button class="btn ghost small" type="button" data-a="back-setup">رجوع</button>
+        <button class="btn" type="button" data-a="start" ${ready ? '' : 'disabled'}>${ready ? 'يلا نبدأ' : 'كمّلوا اختياركم'}</button></div>
+    </div>`;
+  },
+
+  board() {
+    const left = S.tiles.filter((t) => !t.done).length;
+    const panel = (t) => {
+      const team = S.teams[t];
+      const onTurn = S.turn === t;
+      return `<div class="panel" style="outline:${onTurn ? `4px solid ${TEAM_COLORS[t]}` : '1px solid var(--line)'}">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="row" style="gap:14px"><span class="disp" style="font-size:40px;color:${TEAM_COLORS[t]}">${esc(team.name)}</span>${onTurn ? `<span style="padding:3px 14px;border-radius:99px;background:${TEAM_COLORS[t]};color:var(--ink);font-size:18px;font-weight:600">دوركم</span>` : ''}</div>
+          <div class="row" style="gap:10px">${team.ll.map((id) => {
+            const used = team.used.includes(id);
+            const armed = (S.armed && S.armed.id === id && S.armed.team === t) || (id === 'red' && S.red && S.red.team === t);
+            const usable = !used && ((onTurn && LL[id].when === 'before') || (!onTurn && id === 'red'));
+            return `<button class="ll ${used ? 'used' : ''} ${armed ? 'armed' : ''}" type="button" data-a="arm" data-team="${t}" data-id="${id}" ${usable ? '' : 'disabled'} title="${LL[id].name}: ${LL[id].rule}" aria-label="${LL[id].name}">${icon(id)}</button>`;
+          }).join('')}</div>
+        </div>
+        <span class="disp" style="font-size:88px;line-height:1.1;font-variant-numeric:tabular-nums">${team.score}</span>
+      </div>`;
+    };
+    const cols = S.picks.map((p) => {
+      const tiles = S.tiles.filter((t) => t.cat === p.slug);
+      return `<div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div style="height:140px;border-radius:22px;overflow:hidden;background:var(--raised);display:flex;flex-direction:column">
+          <div aria-hidden="true" style="height:12px;background:conic-gradient(from 135deg at 50% 0,${TEAM_COLORS[p.team]} 90deg,#0000 0) 0 0/24px 12px repeat-x var(--chip)"></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6px 14px"><span class="disp" style="font-size:32px">${esc(catName(p.slug))}</span><span style="font-size:18px;color:${TEAM_COLORS[p.team]}">اختيار ${esc(S.teams[p.team].name)}</span></div>
+        </div>
+        <div style="flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:12px">
+        ${tiles.map((t) => t.done
+          ? `<div class="tile done"><span style="font-size:34px;color:${t.winner === null ? 'var(--mute)' : TEAM_COLORS[t.winner]};${t.winner === null ? 'text-decoration:line-through' : ''}">${t.winner === null ? t.tier : '+' + t.points}</span><span style="font-size:18px;font-family:var(--f-ui);font-weight:400;color:${t.winner === null ? 'var(--mute)' : TEAM_COLORS[t.winner]}">${t.winner === null ? 'لا أحد' : esc(S.teams[t.winner].name)}</span></div>`
+          : `<button class="tile t${t.tier}" type="button" data-a="open" data-tile="${t.id}" aria-label="${esc(catName(p.slug))} ${t.tier}"><span style="font-size:${S.picks.length > 4 ? 60 : 76}px;line-height:1">${t.tier}</span>${pips(t.tier)}</button>`).join('')}
+        </div></div>`;
+    }).join('');
+    const armedNote = S.armed ? `<span class="banner">${icon(S.armed.id, 20)} ${LL[S.armed.id].name} جاهزة لـ${esc(S.teams[S.armed.team].name)} · اختاروا الخانة</span>` : '';
+    const redNote = S.red ? `<span class="banner" style="border-color:var(--madder)">الكرت الأحمر من ${esc(S.teams[S.red.team].name)}</span>` : '';
+    return `<div class="screen" style="padding:32px 44px;gap:20px">
+      <div class="flex-h" style="display:grid;grid-template-columns:minmax(0,1fr) 420px minmax(0,1fr);gap:24px;height:150px">
+        ${panel(0)}
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px"><span style="font-size:20px;color:var(--dim)">الدور على</span><span class="disp" style="font-size:48px;color:${TEAM_COLORS[S.turn]}">${esc(S.teams[S.turn].name)}</span><span style="font-size:19px;color:var(--dim)">باقي <b class="disp" style="color:var(--wool)">${left}</b> خانة من ${S.tiles.length}</span></div>
+        ${panel(1)}
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:repeat(${S.picks.length},minmax(0,1fr));gap:20px;min-height:0">${cols}</div>
+      <div class="row flex-h" style="height:64px;border-top:1px solid var(--chip);padding-top:12px">
+        <span style="padding:6px 14px;border-radius:10px;background:var(--chip);color:var(--dim);font-size:17px">التحكم</span>
+        <button class="btn ghost small" type="button" data-a="undo" ${S.history.length ? '' : 'disabled'}>تراجع <kbd>Z</kbd></button>
+        <button class="btn ghost small" type="button" data-a="end" style="color:var(--bad)">${S.confirmEnd ? 'متأكدين؟ اضغط مرة ثانية' : 'إنهاء اللعبة'}</button>
+        ${armedNote}${redNote}<span class="spacer"></span>
+        <span class="hint" style="font-size:18px;color:var(--dim)">المس الخانة لفتحها · قبلها تقدرون تفعّلون وسيلة من لوحة فريقكم</span>
+      </div></div>`;
+  },
+
+  question() {
+    const c = S.cur; const qq = q(c.qid); const tile = S.tiles.find((t) => t.id === c.tile);
+    const answering = c.armed && c.armed.id === 'warrit' ? other(S.turn) : S.turn;
+    const total = c.phase === 'steal' ? S.settings.sTime : S.settings.qTime;
+    const frac = c.phase === 'over' ? 0 : Math.max(0, Math.min(1, c.left / total));
+    const label = c.phase === 'steal' ? `فرصة ${esc(S.teams[other(answering)].name)} للسرقة` : c.phase === 'over' ? 'خلص الوقت' : c.running ? `باقي لـ${esc(S.teams[answering].name)}` : 'المؤقت واقف';
+    const color = c.phase === 'steal' ? TEAM_COLORS[other(answering)] : TEAM_COLORS[answering];
+    const notes = [];
+    if (c.armed && LL[c.armed.id].scoring) notes.push(`${icon(c.armed.id, 20)} ${LL[c.armed.id].name}${LL[c.armed.id].mult ? ` · ${tile.tier} × ${LL[c.armed.id].mult} = ${Math.round(tile.tier * LL[c.armed.id].mult)}` : ' · إذا صح ينخصم من الخصم ' + tile.tier}`);
+    if (c.armed && c.armed.id === 'elder') notes.push('أكبر واحد في الفريق يجاوب لحاله');
+    if (c.armed && c.armed.id === 'warrit') notes.push(`ورّطه: ${esc(S.teams[answering].name)} يجاوبون، وإذا غلطوا النقاط لـ${esc(S.teams[S.turn].name)}`);
+    if (c.red) notes.push(`الكرت الأحمر: ${esc(S.teams[c.red.team].name)} يختارون لاعب من ${esc(S.teams[answering].name)} يجاوب لحاله`);
+    if (c.two) notes.push('جوابين: لكم محاولتين');
+    if (c.swapped) notes.push('انبدّل السؤال');
+    const after = S.teams[answering].ll.filter((id) => LL[id].when === 'after' && !S.teams[answering].used.includes(id));
+    const canSwap = (id) => id !== 'swap' || pool(tile.cat, tile.tier).length > 0;
+    return `<div class="screen" style="gap:26px">
+      <div class="row" style="height:68px;gap:14px">
+        <span style="height:64px;padding:0 24px;border-radius:18px;background:var(--raised);display:flex;align-items:center" class="disp"><span style="font-size:30px">${esc(catName(tile.cat))}</span></span>
+        <span class="t${tile.tier}" style="height:64px;padding:0 22px;border-radius:18px;display:flex;align-items:center;gap:14px"><span class="disp" style="font-size:36px">${tile.tier}</span>${pips(tile.tier)}</span>
+        <span class="spacer"></span>
+        <span style="font-size:22px"><span style="color:var(--t1)">${esc(S.teams[0].name)}</span> <b class="disp">${S.teams[0].score}</b> · <span style="color:var(--t2)">${esc(S.teams[1].name)}</span> <b class="disp">${S.teams[1].score}</b></span>
+      </div>
+      ${notes.length ? `<div class="row" style="flex-wrap:wrap;gap:12px">${notes.map((n) => `<span class="banner">${n}</span>`).join('')}</div>` : ''}
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 80px"><p style="margin:0;max-width:1560px;text-align:center;font-weight:500;font-size:66px;line-height:1.5;text-wrap:balance">${esc(qq.prompt)}</p></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="row" style="align-items:flex-end">
+          <span class="disp" style="font-size:112px;line-height:1;font-variant-numeric:tabular-nums;color:${c.phase === 'main' && c.left <= 5 ? 'var(--madder)' : 'var(--wool)'}">${c.left}</span>
+          <span style="font-size:28px;font-weight:600;color:${color}">${label}</span><span class="spacer"></span>
+          ${after.length ? `<span style="font-size:19px;color:var(--dim)">مساعدات ${esc(S.teams[answering].name)}</span>` : ''}
+          ${after.map((id) => `<button class="btn ghost small" type="button" data-a="use-after" data-id="${id}" ${canSwap(id) ? '' : 'disabled'} style="border-color:${TEAM_COLORS[answering]};display:inline-flex;align-items:center;gap:10px"><span class="ll" style="width:34px;height:34px;background:none">${icon(id)}</span>${LL[id].name}</button>`).join('')}
+        </div>
+        <div class="bar" role="progressbar" aria-label="الوقت" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${c.left}"><i style="background:${color};transform:scaleX(${frac})"></i></div>
+      </div>
+      <div class="row flex-h" style="height:96px;border-top:1px solid var(--chip);padding-top:16px">
+        <span style="padding:6px 14px;border-radius:10px;background:var(--chip);color:var(--dim);font-size:17px">التحكم</span>
+        <button class="btn ghost small" type="button" data-a="back-q">رجّعها (فتحتها بالغلط)</button>
+        <button class="btn ghost small" type="button" data-a="pause">${c.running ? 'وقّف المؤقت' : 'كمّل المؤقت'}</button>
+        <span class="spacer"></span>
+        <button class="btn" type="button" data-a="reveal">الإجابة <kbd style="border-color:var(--ink);color:var(--ink)">Space</kbd></button>
+      </div></div>`;
+  },
+
+  answer() {
+    const c = S.cur; const qq = q(c.qid); const tile = S.tiles.find((t) => t.id === c.tile);
+    const warrit = c.armed && c.armed.id === 'warrit';
+    const answering = warrit ? other(S.turn) : S.turn;
+    const opts = resolveOptions();
+    const btn = (o) => `<button class="who" type="button" data-a="resolve" data-r="${o.r}" style="${o.style || ''}">
+      <span style="display:flex;flex-direction:column"><span class="disp" style="font-size:46px;${o.color ? `color:${o.color}` : ''}">${o.title}</span><span style="font-size:22px;color:var(--wool2)">${o.sub}</span></span>
+      <span class="kbig">${o.key}</span></button>`;
+    return `<div class="screen" style="gap:26px">
+      <div class="row" style="height:68px;gap:14px">
+        <span class="disp" style="height:64px;padding:0 24px;border-radius:18px;background:var(--raised);display:flex;align-items:center;font-size:30px">${esc(catName(tile.cat))}</span>
+        <span class="t${tile.tier}" style="height:64px;padding:0 22px;border-radius:18px;display:flex;align-items:center;gap:14px"><span class="disp" style="font-size:36px">${tile.tier}</span>${pips(tile.tier)}</span>
+        <span class="spacer"></span><p style="margin:0;max-width:1100px;font-size:26px;color:#BFAE98;text-align:left">${esc(qq.prompt)}</p>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center">
+        <div class="pop" style="width:1240px;border-radius:32px;overflow:hidden;background:var(--raised);box-shadow:0 40px 90px -30px rgba(0,0,0,.8)">
+          <div class="sadu" aria-hidden="true"></div>
+          <div style="padding:40px 72px 44px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+            <span style="font-size:26px;color:var(--dim)">الجواب</span>
+            <span class="disp" style="font-size:110px;color:var(--saffron)">${esc(qq.answer)}</span>
+            ${qq.accepted && qq.accepted.length ? `<span style="font-size:26px;color:var(--wool2)">يُقبل كذلك: ${qq.accepted.map(esc).join(' · ')}</span>` : ''}
+            ${qq.note ? `<span style="font-size:24px;color:var(--wool2)">${esc(qq.note)}</span>` : ''}
+          </div>
+          <div class="sadu" aria-hidden="true" style="transform:scaleY(-1)"></div>
+        </div>
+      </div>
+      <h2 class="disp" style="margin:0;text-align:center;font-size:44px">${warrit ? `${esc(S.teams[answering].name)} جاوبوا صح؟` : 'مين جاوب؟'}</h2>
+      <div style="display:grid;grid-template-columns:${opts.map(() => 'minmax(0,1fr)').join(' ')};gap:24px">${opts.map(btn).join('')}</div>
+    </div>`;
+  },
+
+  end() {
+    const [a, b] = S.teams;
+    const w = a.score === b.score ? null : a.score > b.score ? 0 : 1;
+    const colors = ['#E9D7B5', '#EEA43A', '#CF4535', '#3CC0B4', '#8F86F2', '#F4EADB'];
+    const conf = Array.from({ length: 30 }, (_, i) => `<span style="left:${(i * 37) % 98}%;width:${12 + (i * 7) % 14}px;height:${12 + (i * 7) % 14}px;background:${colors[i % 6]};clip-path:${i % 2 ? 'polygon(50% 0,100% 50%,50% 100%,0 50%)' : 'polygon(50% 0,100% 100%,0 100%)'};animation-duration:${5 + (i % 5)}s;animation-delay:${(i * 0.37) % 6}s"></span>`).join('');
+    const card = (t) => `<div style="width:520px;border-radius:28px;background:var(--raised);border:3px solid ${w === t ? TEAM_COLORS[t] : 'var(--line)'};padding:24px 32px;display:flex;flex-direction:column;gap:14px">
+      <div class="row" style="justify-content:space-between"><span class="disp" style="font-size:44px;color:${TEAM_COLORS[t]}">${esc(S.teams[t].name)}</span><span class="disp" style="font-size:72px">${S.teams[t].score}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">${[[S.teams[t].correct, 'جواب صح'], [S.teams[t].steals, 'سرقة']].map(([n, l]) => `<div style="border-radius:16px;background:var(--tent2);padding:10px;text-align:center"><div class="disp" style="font-size:34px">${n}</div><div style="font-size:17px;color:#BFAE98">${l}</div></div>`).join('')}</div></div>`;
+    return `<div class="screen" style="padding:0;gap:0">
+      ${w !== null ? `<div class="confetti" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none">${conf}</div>` : ''}
+      ${band()}
+      <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;text-align:center;padding:40px">
+        ${w !== null
+          ? `<span style="font-size:34px;color:var(--wool2)">الفوز لـ</span><h1 class="disp pop" style="margin:0;font-size:200px;line-height:1.2;color:${TEAM_COLORS[w]}">${esc(S.teams[w].name)}</h1><span class="disp" style="font-size:56px;color:var(--saffron)">كفو عليكم!</span>`
+          : `<h1 class="disp pop" style="margin:0;font-size:180px;color:var(--saffron)">تعادل!</h1><span style="font-size:32px;color:var(--wool2)">ضربات الترجيح: سؤال لكل فريق بالتناوب، 5 جولات</span>`}
+        <div class="row" style="gap:28px">${card(0)}${card(1)}</div>
+        <div class="row" style="gap:16px">
+          ${w === null ? '<button class="btn" type="button" data-a="pens">ابدأ ضربات الترجيح</button>' : ''}
+          <button class="btn ${w === null ? 'ghost' : ''}" type="button" data-a="again">لعبة جديدة</button>
+          <button class="btn ghost small" type="button" data-a="home">الرئيسية</button>
+        </div>
+      </div></div>`;
+  },
+
+  pens() {
+    const P = S.pen; const qq = P.qid ? q(P.qid) : null;
+    const row = (t) => `<div class="row" style="gap:16px"><span class="disp" style="font-size:36px;min-width:220px;color:${TEAM_COLORS[t]}">${esc(S.teams[t].name)}</span>${Array.from({ length: Math.max(5, P.kicks[t].length) }, (_, i) => {
+      const k = P.kicks[t][i];
+      return `<span style="width:44px;height:44px;border-radius:50%;border:3px solid ${TEAM_COLORS[t]};background:${k === true ? TEAM_COLORS[t] : k === false ? 'var(--madder)' : 'transparent'}"></span>`;
+    }).join('')}</div>`;
+    if (P.winner !== null && P.winner !== undefined) {
+      return `<div class="screen" style="align-items:center;justify-content:center;text-align:center;gap:30px">${row(0)}${row(1)}
+        <h1 class="disp pop" style="margin:0;font-size:${P.winner === -1 ? 120 : 160}px;color:${P.winner === -1 ? 'var(--saffron)' : TEAM_COLORS[P.winner]}">${P.winner === -1 ? 'خلصت الأسئلة… تعادل' : esc(S.teams[P.winner].name)}</h1>
+        ${P.winner === -1 ? '' : '<span class="disp" style="font-size:56px;color:var(--saffron)">فازوا بضربات الترجيح!</span>'}
+        <div class="row" style="gap:16px"><button class="btn" type="button" data-a="again">لعبة جديدة</button><button class="btn ghost small" type="button" data-a="home">الرئيسية</button></div></div>`;
+    }
+    return `<div class="screen" style="gap:28px">
+      <div class="row"><h1 class="disp" style="margin:0;font-size:48px">ضربات الترجيح</h1><span class="spacer"></span><span style="font-size:24px;color:var(--wool2)">الدور على <b style="color:${TEAM_COLORS[P.turn]}">${esc(S.teams[P.turn].name)}</b></span></div>
+      <div style="display:flex;flex-direction:column;gap:14px">${row(0)}${row(1)}</div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;text-align:center">
+        <span style="font-size:24px;color:var(--dim)">${esc(catName(qq.category))} · ${qq.tier}</span>
+        <p style="margin:0;max-width:1560px;font-weight:500;font-size:62px;line-height:1.5">${esc(qq.prompt)}</p>
+        ${P.revealed ? `<span class="disp pop" style="font-size:90px;color:var(--saffron)">${esc(qq.answer)}</span>` : ''}
+      </div>
+      <div class="row" style="justify-content:center;gap:20px">
+        ${P.revealed
+          ? `<button class="btn" type="button" data-a="kick" data-ok="1" style="background:${TEAM_COLORS[P.turn]}">جاوبوا صح</button><button class="btn ghost" type="button" data-a="kick" data-ok="0">غلطوا</button>`
+          : '<button class="btn" type="button" data-a="pen-reveal">الإجابة</button>'}
+      </div></div>`;
+  }
+};
+
+// ---- game logic ------------------------------------------------------------
+function pool(cat, tier) {
+  const used = new Set(S.usedQ);
+  const main = DATA.questions.filter((x) => x.category === cat && x.tier === tier && !used.has(x.id));
+  const res = DATA.reserve.filter((x) => x.category === cat && x.tier === tier && !used.has(x.id));
+  return [...main, ...res];
+}
+function draw(cat, tier) {
+  const p = pool(cat, tier);
+  if (!p.length) return null;
+  const pick = p[Math.floor(Math.random() * Math.min(p.length, p.length))];
+  S.usedQ.push(pick.id);
+  return pick.id;
+}
+function startGame() {
+  S.tiles = [];
+  let id = 0;
+  for (const p of S.picks) for (const tier of [200, 400, 600]) for (const side of [0, 1]) {
+    S.tiles.push({ id: id++, cat: p.slug, tier, side, qid: draw(p.slug, tier), done: false, winner: null, points: 0 });
+  }
+  S.tiles = S.tiles.filter((t) => t.qid);
+  S.turn = 0; S.screen = 'board';
+}
+function resolveOptions() {
+  const c = S.cur; const tile = S.tiles.find((t) => t.id === c.tile);
+  const base = tile.tier;
+  if (c.armed && c.armed.id === 'warrit') {
+    const ans = other(S.turn);
+    return [
+      { r: 'warrit-ok', title: 'جاوبوا صح', sub: `+${base} لـ${esc(S.teams[ans].name)}`, color: TEAM_COLORS[ans], key: ans + 1 },
+      { r: 'warrit-miss', title: 'غلطوا', sub: `+${base} لـ${esc(S.teams[S.turn].name)}`, color: TEAM_COLORS[S.turn], key: '0' }
+    ];
+  }
+  const mult = c.armed && LL[c.armed.id].mult ? LL[c.armed.id].mult : 1;
+  const own = Math.round(base * mult);
+  const holeNote = c.armed && c.armed.id === 'hole' ? ` · −${base} على الخصم` : '';
+  const opt = (t) => t === S.turn
+    ? { r: String(t), title: esc(S.teams[t].name), sub: `جاوبوا · +${own}${holeNote}`, color: TEAM_COLORS[t], key: t + 1 }
+    : { r: String(t), title: esc(S.teams[t].name), sub: `سرقوها · +${base}`, color: TEAM_COLORS[t], key: t + 1 };
+  return [opt(0), { r: 'none', title: 'لا أحد', sub: 'ما أحد ياخذ نقاط', key: '0', style: 'background:var(--tent2)' }, opt(1)];
+}
+function resolve(r) {
+  snapshot();
+  const c = S.cur; const tile = S.tiles.find((t) => t.id === c.tile);
+  const base = tile.tier;
+  let winner = null, points = 0;
+  if (r === 'warrit-ok') { winner = other(S.turn); points = base; S.teams[winner].correct++; }
+  else if (r === 'warrit-miss') { winner = S.turn; points = base; }
+  else if (r !== 'none') {
+    winner = Number(r);
+    if (winner === S.turn) {
+      const mult = c.armed && LL[c.armed.id].mult ? LL[c.armed.id].mult : 1;
+      points = Math.round(base * mult);
+      if (c.armed && c.armed.id === 'hole') S.teams[other(winner)].score -= base;
+      S.teams[winner].correct++;
+    } else { points = base; S.teams[winner].steals++; S.teams[winner].correct++; }
+  }
+  if (winner !== null) S.teams[winner].score += points;
+  Object.assign(tile, { done: true, winner, points });
+  S.cur = null; S.turn = other(S.turn); S.confirmEnd = false;
+  S.screen = S.tiles.every((t) => t.done) ? 'end' : 'board';
+}
+function openTile(id) {
+  snapshot();
+  const tile = S.tiles.find((t) => t.id === id);
+  if (S.armed) S.teams[S.armed.team].used.push(S.armed.id);
+  if (S.red) S.teams[S.red.team].used.push('red');
+  S.cur = { tile: id, qid: tile.qid, phase: 'main', left: S.settings.qTime, running: true, armed: S.armed, red: S.red, two: false, swapped: false };
+  S.armed = null; S.red = null; S.confirmEnd = false;
+  S.screen = 'question';
+}
+function startPens() {
+  S.pen = { kicks: [[], []], turn: 0, qid: null, revealed: false, winner: null };
+  nextPen();
+}
+function nextPen() {
+  const used = new Set(S.usedQ);
+  const all = [...DATA.questions, ...DATA.reserve].filter((x) => !used.has(x.id));
+  const pref = all.filter((x) => x.tier === 400);
+  const pick = (pref.length ? pref : all)[0];
+  if (!pick) { S.pen.winner = -1; return; }
+  S.usedQ.push(pick.id); S.pen.qid = pick.id; S.pen.revealed = false;
+}
+function kick(ok) {
+  const P = S.pen;
+  P.kicks[P.turn].push(ok);
+  const [a, b] = P.kicks.map((k) => k.filter(Boolean).length);
+  const [na, nb] = P.kicks.map((k) => k.length);
+  let w = null;
+  if (na <= 5 && nb <= 5) {
+    if (a > b + (5 - nb)) w = 0; else if (b > a + (5 - na)) w = 1;
+  }
+  if (w === null && na === nb && na >= 5 && a !== b) w = a > b ? 0 : 1;
+  if (w !== null) { P.winner = w; S.teams[w].score += 0; return; }
+  P.turn = other(P.turn);
+  nextPen();
+}
+
+// ---- timer -------------------------------------------------------------------
+function tick() {
+  if (!S || S.screen !== 'question' || !S.cur || !S.cur.running) return;
+  const c = S.cur;
+  if (c.left > 1) c.left--;
+  else if (c.phase === 'main' && !(c.armed && c.armed.id === 'warrit')) { c.phase = 'steal'; c.left = S.settings.sTime; }
+  else { c.phase = 'over'; c.left = 0; c.running = false; }
+  render();
+}
+
+// ---- rendering & events -----------------------------------------------------
+function render() {
+  stage.innerHTML = screens[S ? S.screen : 'home']();
+  if (S) save();
+}
+stage.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-a]');
+  if (!b || b.disabled) return;
+  const a = b.dataset.a;
+  if (a === 'fullscreen') {
+    const root = document.documentElement;
+    const go = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (go) Promise.resolve(go.call(root)).catch(() => {});
+    return;
+  }
+  if (a === 'new') { S = fresh(); }
+  else if (a === 'resume') { S = load(); }
+  else if (a === 'home') { S = null; stage.innerHTML = screens.home(); return; }
+  else if (a === 'again') { S = fresh(S.teams.map((t) => t.name)); }
+  else if (a === 'pick') {
+    const slug = b.dataset.slug;
+    if (S.picks.some((p) => p.slug === slug)) S.picks = S.picks.filter((p) => p.slug !== slug);
+    else if (S.picks.length < CAT_LIMIT) {
+      const n = [0, 1].map((t) => S.picks.filter((p) => p.team === t).length);
+      S.picks.push({ slug, team: n[0] <= n[1] ? 0 : 1 });
+    }
+  }
+  else if (a === 'to-ll') S.screen = 'lifelines';
+  else if (a === 'back-setup') S.screen = 'setup';
+  else if (a === 'll-pick') {
+    const t = Number(b.dataset.team), id = b.dataset.id, mine = S.teams[t].ll;
+    S.teams[t].ll = mine.includes(id) ? mine.filter((x) => x !== id) : mine.length < 3 ? [...mine, id] : mine;
+  }
+  else if (a === 'set') {
+    const k = b.dataset.key;
+    S.settings[k] = Math.max(Number(b.dataset.min), Math.min(Number(b.dataset.max), S.settings[k] + Number(b.dataset.d)));
+  }
+  else if (a === 'start') startGame();
+  else if (a === 'arm') {
+    const t = Number(b.dataset.team), id = b.dataset.id;
+    if (id === 'red') S.red = S.red ? null : { team: t };
+    else S.armed = S.armed && S.armed.id === id ? null : { team: t, id };
+  }
+  else if (a === 'open') openTile(Number(b.dataset.tile));
+  else if (a === 'undo') { const last = S.history.pop(); if (last) { const h = S.history; S = { ...JSON.parse(last), history: h }; } }
+  else if (a === 'end') { if (S.confirmEnd) S.screen = 'end'; else S.confirmEnd = true; }
+  else if (a === 'pause') { if (S.cur.phase !== 'over') S.cur.running = !S.cur.running; }
+  else if (a === 'back-q') { const last = S.history.pop(); if (last) { const h = S.history; S = { ...JSON.parse(last), history: h }; } }
+  else if (a === 'use-after') {
+    const id = b.dataset.id; const c = S.cur;
+    const answering = c.armed && c.armed.id === 'warrit' ? other(S.turn) : S.turn;
+    S.teams[answering].used.push(id);
+    if (id === 'two') c.two = true;
+    if (id === 'swap') {
+      const tile = S.tiles.find((t) => t.id === c.tile);
+      const nq = draw(tile.cat, tile.tier);
+      if (nq) { tile.qid = nq; c.qid = nq; c.swapped = true; c.phase = 'main'; c.left = S.settings.qTime; c.running = true; }
+    }
+  }
+  else if (a === 'reveal') { S.cur.running = false; S.screen = 'answer'; }
+  else if (a === 'resolve') resolve(b.dataset.r);
+  else if (a === 'pens') { startPens(); S.screen = 'pens'; }
+  else if (a === 'pen-reveal') S.pen.revealed = true;
+  else if (a === 'kick') kick(b.dataset.ok === '1');
+  render();
+});
+stage.addEventListener('input', (e) => {
+  const t = e.target.closest('[data-name]');
+  if (t && S) { S.teams[Number(t.dataset.name)].name = t.value || (t.dataset.name === '0' ? 'الفريق الأول' : 'الفريق الثاني'); save(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (!S || (e.target && e.target.tagName === 'INPUT')) return;
+  const click = (sel) => { const el = stage.querySelector(sel); if (el && !el.disabled) el.click(); };
+  if (S.screen === 'question' && e.key === ' ') { e.preventDefault(); click('[data-a="reveal"]'); }
+  else if (S.screen === 'answer') {
+    const opts = resolveOptions();
+    const o = opts.find((x) => String(x.key) === e.key);
+    if (o) click(`[data-a="resolve"][data-r="${o.r}"]`);
+  }
+  else if (S.screen === 'board' && (e.key === 'z' || e.key === 'Z')) click('[data-a="undo"]');
+});
+
+// ---- fit the TV stage to any screen -------------------------------------------
+function fit() {
+  const vp = document.getElementById('viewport');
+  const W = vp.clientWidth, H = vp.clientHeight;
+  const aspect = Math.max(4 / 3, W / H); // anything narrower than 4:3 (portrait) letterboxes
+  let sw = 1920, sh = 1080;
+  if (aspect > 16 / 9) sw = Math.round(1080 * aspect); else sh = Math.round(1920 / aspect);
+  stage.style.width = sw + 'px';
+  stage.style.height = sh + 'px';
+  const s = Math.min(W / sw, H / sh);
+  stage.style.transform = `scale(${s})`;
+  stage.classList.toggle('compact', s < 0.6);
+  const portrait = window.innerWidth < window.innerHeight;
+  document.getElementById('rotate').hidden = !(portrait && !fit.dismissed);
+}
+document.getElementById('rotate-ok').addEventListener('click', () => { fit.dismissed = true; fit(); });
+window.addEventListener('resize', fit);
+fit();
+setInterval(tick, 1000);
+render();
+</script>
+</body>
+</html>
