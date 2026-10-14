@@ -25,7 +25,7 @@
 [hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:#0F0B09;color:var(--wool);font-family:var(--f-ui);overflow:hidden;-webkit-text-size-adjust:100%}
-#viewport{position:fixed;top:env(safe-area-inset-top,0px);right:env(safe-area-inset-right,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#viewport{position:fixed;top:env(safe-area-inset-top,0px);right:env(safe-area-inset-right,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);display:flex;align-items:center;justify-content:center;overflow:hidden;overflow:clip}
 #stage{width:1920px;height:1080px;flex:none;transform-origin:center center;background:var(--tent);position:relative;overflow:hidden;line-height:1.5}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -38,8 +38,8 @@ button:focus-visible,input:focus-visible{outline:5px solid var(--wool);outline-o
 .pips{display:flex;gap:9px}.pips span{width:11px;height:11px;transform:rotate(45deg);background:currentColor}
 .btn{border:0;border-radius:22px;background:var(--saffron);color:var(--ink);font-family:var(--f-display);font-weight:700;font-size:32px;min-height:84px;padding:0 44px;transition:transform .15s ease}
 @media (hover:hover){.btn:not(:disabled):hover{transform:translateY(-3px)}.tile:not(:disabled):hover{transform:scale(1.04)}}
-.btn:disabled{background:var(--chip);color:var(--dim)}
 .btn.ghost{background:var(--raised);border:2px solid var(--line);color:var(--wool)}
+.btn:disabled,.btn.ghost:disabled{background:var(--chip);border-color:transparent;color:var(--mute)}
 .small{font-size:19px;min-height:56px;padding:0 22px;border-radius:14px;font-family:var(--f-ui);font-weight:500}
 .steps{display:flex;gap:14px;font-size:20px}.steps span{padding:8px 18px;border-radius:99px;border:1px solid var(--line);color:var(--dim)}.steps span.on{background:var(--saffron);border-color:var(--saffron);color:var(--ink);font-weight:600}
 .row{display:flex;align-items:center;gap:16px}
@@ -50,6 +50,13 @@ button:focus-visible,input:focus-visible{outline:5px solid var(--wool);outline-o
 .ll.used{opacity:.35}
 .ll.used::after{content:'';position:absolute;width:56px;height:3px;background:var(--madder);transform:rotate(-45deg)}
 .ll svg{width:26px;height:26px}
+/* A team's lifeline on the board: icon + name. Not usable right now → dimmed, and a tap explains why (toast). */
+.lls{display:flex;gap:16px;align-items:flex-start}
+.lli{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;border:0;background:none;color:var(--wool);font-family:var(--f-ui)}
+.lli .nm{font-size:15px;line-height:1.2;color:var(--wool2);white-space:nowrap}
+.lli[aria-disabled="true"] .ll:not(.used),.lli[aria-disabled="true"] .nm{opacity:.4}
+.banner svg{width:1.1em;height:1.1em;flex:none}
+#toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;max-width:min(92vw,960px);padding:12px 24px;border-radius:16px;background:var(--wool);color:var(--ink);font-family:var(--f-ui);font-weight:600;font-size:clamp(15px,2vw,28px);line-height:1.45;text-align:center;box-shadow:0 12px 32px rgba(0,0,0,.55)}
 .tile{border:0;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:var(--f-display);font-weight:700;transition:transform .15s ease}
 .tile:focus-visible{transform:scale(1.04)}
 /* Small screens (phones): the stage is scaled down a lot, so controls grow in stage pixels to stay tappable. */
@@ -62,9 +69,11 @@ button:focus-visible,input:focus-visible{outline:5px solid var(--wool);outline-o
 .compact .who{min-height:200px}
 .compact .kbig,.compact kbd,.compact .hint{display:none}
 .compact .flex-h{height:auto!important}
-.compact .ll-card .rule{display:none}
-.compact .ll-card .ll{width:64px;height:64px}
-.compact .ll-card .disp{font-size:34px!important}
+.compact .lli .nm{font-size:24px}
+/* Short stages (phones in landscape): lifeline cards drop their rule line so all 7 fit; picking one shows its rule as a toast. */
+.tight .ll-card .rule{display:none}
+.tight .ll-card .ll{width:64px;height:64px}
+.tight .ll-card .disp{font-size:34px!important}
 .t200{background:var(--sand);color:var(--ink)}.t400{background:var(--saffron);color:var(--ink)}.t600{background:var(--madder);color:var(--wool)}
 .done{background:var(--tent2);border:2px solid var(--chip);color:var(--mute)}
 .banner{border-radius:18px;border:3px solid var(--saffron);padding:10px 22px;font-size:22px;display:inline-flex;align-items:center;gap:12px}
@@ -92,9 +101,10 @@ kbd{font-family:var(--f-ui);font-size:15px;padding:1px 8px;border-radius:6px;bor
   <p>اللعبة مصممة للشاشة العرضية: تلفزيون، لابتوب، أو آيباد بالعرض.</p>
   <button class="btn small" id="rotate-ok" type="button">كمّل كذا</button>
 </div>
+<div id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
-const BANK = {"label":"الدفعة التجريبية","categories":[{"slug":"saudi","name":"السعودية","desc":"كل شي عن بلدنا"},{"slug":"football-saudi","name":"كرة قدم سعودية","desc":"الدوري والأندية والنجوم"},{"slug":"general-knowledge","name":"معلومات عامة","desc":"شوي من كل شي"}],"questions":[{"id":"d-p1-saudi-07","category":"saudi","tier":200,"prompt":"اسم عاصمتنا جمعٌ لكلمة تعني الأرض الخضراء التي يجتمع فيها الماء ويكثر نبتها، فما هذه الكلمة؟","answer":"روضة","accepted":[],"note":"المطلوب المفرد «روضة»؛ لا تُقبل «رياض» لأنها الجمع"},{"id":"d-p1-saudi-27","category":"saudi","tier":200,"prompt":"طلبت مكتبة الكونغرس الأمريكية أجزاءً من مسلسل رمضاني كوميدي سعودي لوضعها في أرشيفها، فما هو؟","answer":"طاش ما طاش","accepted":["طاش"],"note":""},{"id":"d-p1-saudi-21","category":"saudi","tier":200,"prompt":"أي رالي عالمي يُقام في المملكة العربية السعودية منذ عام 2020؟","answer":"داكار","accepted":["رالي داكار","دكار","رالي دكار"],"note":""},{"id":"d-p1-saudi-02","category":"saudi","tier":200,"prompt":"يوم التأسيس في 22 فبراير يخلّد قيام دولةٍ عاصمتها الدرعية عام 1727، فمن الإمام الذي أسّسها؟","answer":"محمد بن سعود","accepted":["الإمام محمد بن سعود"],"note":""},{"id":"d-p1-saudi-12","category":"saudi","tier":200,"prompt":"ناطحة سحاب مخطط أن تكون الأطول في العالم، وما زالت تحت الإنشاء حتى 2026، ففي أي مدينة سعودية تقع؟","answer":"جدة","accepted":[],"note":""},{"id":"d-p1-saudi-22","category":"saudi","tier":200,"prompt":"يلقّبه مشجعوه بـ«العالمي» لأنه مثّل قارة آسيا في أول كأس عالم للأندية، فما هذا النادي السعودي؟","answer":"النصر","accepted":["نادي النصر"],"note":""},{"id":"d-p1-saudi-26","category":"saudi","tier":200,"prompt":"أي سوق تاريخي أعادت المملكة إحياءه بعد توقف دام 1300 سنة؟","answer":"عكاظ","accepted":["سوق عكاظ"],"note":""},{"id":"d-p1-saudi-11","category":"saudi","tier":200,"prompt":"فازت المملكة العربية السعودية في 28 نوفمبر 2023 باستضافة أي معرض دولي؟","answer":"إكسبو 2030","accepted":["إكسبو","معرض إكسبو","إكسبو الرياض","إكسبو الرياض 2030","Expo 2030","Expo"],"note":""},{"id":"d-p1-saudi-34","category":"saudi","tier":400,"prompt":"أسسها عام 1977 رواد زراعة أيرلنديون مع الأمير سلطان بن محمد بن سعود الكبير، فما هذه الشركة؟","answer":"المراعي","accepted":["شركة المراعي"],"note":""},{"id":"d-p1-saudi-09","category":"saudi","tier":400,"prompt":"في أي جزر سعودية يوجد السمك الببغاء ويُقام مهرجان «الحريد» السياحي؟","answer":"فرسان","accepted":["جزر فرسان","جزيرة فرسان"],"note":""},{"id":"d-p1-saudi-13","category":"saudi","tier":200,"prompt":"مشروع سعودي سجّلته غينيس عام 2025 كأطول شبكة نقل ذاتية القيادة بالكامل في العالم، بطول 176 كم. ما هو؟","answer":"قطار الرياض","accepted":["مترو الرياض","ميترو الرياض"],"note":""},{"id":"d-p1-saudi-18","category":"saudi","tier":400,"prompt":"اكتُشف النفط لأول مرة في المملكة عام 1938 في البئر المعروفة بـ«الدمام رقم 7»، فبماذا لُقّبت؟","answer":"بئر الخير","accepted":["الخير"],"note":""},{"id":"d-p1-saudi-24","category":"saudi","tier":400,"prompt":"ما اسم سباق الخيل الدولي الذي يُعد، حتى 2026، أغلى سباق للخيل في العالم؟","answer":"كأس السعودية","accepted":["Saudi Cup"],"note":""},{"id":"d-p1-saudi-28","category":"saudi","tier":400,"prompt":"جبال أي منطقة سعودية تُعد المركز الرئيسي لزراعة البن الخولاني؟","answer":"جازان","accepted":["جيزان","منطقة جازان"],"note":""},{"id":"d-p1-saudi-15","category":"saudi","tier":400,"prompt":"الكل سمع بمشروع «نيوم»، لكن ما معنى اسمه؟","answer":"المستقبل الجديد","accepted":["نيو مستقبل","New Future"],"note":"يكفي أي صيغة تجمع «جديد» و«مستقبل»؛ «الجديد» أو «المستقبل» وحدها لا تكفي"},{"id":"d-p1-saudi-33","category":"saudi","tier":400,"prompt":"كلمة «أرامكو» اختصار لاسمٍ إنجليزي اعتُمد عام 1944، فما معناه بالعربية؟","answer":"شركة الزيت العربية الأمريكية","accepted":["الزيت العربية الأمريكية","العربية الأمريكية","الشركة العربية الأمريكية للزيت","شركة النفط العربية الأمريكية","Arabian American Oil Company"],"note":"يكفي ذكر «العربية الأمريكية»"},{"id":"d-p1-saudi-23","category":"saudi","tier":200,"prompt":"بطولة سنوية لألعاب الفيديو أُقيمت صيفاً في بوليفارد سيتي بالرياض، بجوائز إجماليها مئات ملايين الريالات. ما اسمها؟","answer":"كأس العالم للرياضات الإلكترونية","accepted":["كأس العالم للألعاب الإلكترونية","Esports World Cup","EWC"],"note":"تكفي أي صيغة لـ«كأس العالم» للرياضات أو الألعاب الإلكترونية؛ «جيمرز 8» و«موسم الرياض» لا تُقبل"},{"id":"d-p1-saudi-03","category":"saudi","tier":600,"prompt":"بعد «عام القهوة السعودية» 2022 و«عام الإبل» 2024، بأي اسم سُمّي عام 2026 في المملكة؟","answer":"الذكاء الاصطناعي","accepted":["عام الذكاء الاصطناعي","AI","الذكاء الصناعي","عام الذكاء الصناعي"],"note":""},{"id":"d-p1-saudi-25","category":"saudi","tier":400,"prompt":"قبل أن يحمل اسمه الحالي، بأي اسم عُرف نادي الهلال عند تأسيسه؟","answer":"الأولمبي","accepted":["النادي الأولمبي"],"note":""},{"id":"d-p1-saudi-40","category":"saudi","tier":600,"prompt":"فضية سباق 400 متر حواجز في أولمبياد سيدني 2000 كانت أول ميدالية أولمبية لرياضي سعودي، فمن صاحبها؟","answer":"هادي صوعان","accepted":["صوعان","هادي الصميلي","هادي صوعان الصميلي","هادي سوعان","سوعان"],"note":""},{"id":"d-p1-saudi-20","category":"saudi","tier":400,"prompt":"أي جزء من الدرعية القديمة أُضيف إلى قائمة التراث العالمي لليونسكو عام 2010؟","answer":"حي الطريف","accepted":["الطريف"],"note":"«الدرعية» أو «البجيري» لا تكفي؛ المطلوب اسم الحي المسجّل"},{"id":"d-p1-saudi-39","category":"saudi","tier":600,"prompt":"صدر عام 2012 من إخراج هيفاء المنصور، ويُعد أول فيلم روائي طويل يُصوَّر بالكامل في السعودية، فما اسمه؟","answer":"وجدة","accepted":[],"note":""},{"id":"d-p1-saudi-30","category":"saudi","tier":600,"prompt":"بماذا يُعرف الفن المستخدم في نقوش قرية رجال ألمع، والمسجّل في اليونسكو عام 2017؟","answer":"القَط العسيري","accepted":["فن القط","القط"],"note":""},{"id":"d-p1-saudi-04","category":"saudi","tier":600,"prompt":"النشيد الوطني السعودي معتمد رسمياً منذ عام 1984، فمن الشاعر الذي كتب كلماته؟","answer":"إبراهيم خفاجي","accepted":["خفاجي"],"note":""},{"id":"d-p1-football-saudi-05","category":"football-saudi","tier":200,"prompt":"مفارقة موسم 2025-2026: أي نادٍ أنهى الدوري السعودي دون أي خسارة، ومع ذلك لم يتوّج باللقب؟","answer":"الهلال","accepted":["الزعيم","نادي الهلال"],"note":""},{"id":"d-p1-football-saudi-01","category":"football-saudi","tier":200,"prompt":"في كأس العالم للأندية 2025، أي فريق إنجليزي أقصاه الهلال؟","answer":"مانشستر سيتي","accepted":["مان سيتي","السيتي"],"note":"لا تُقبل «مانشستر» وحدها لأنها تحتمل مانشستر يونايتد"},{"id":"d-p1-football-saudi-08","category":"football-saudi","tier":200,"prompt":"بأي لقب اشتهر ماجد عبدالله، لقبٍ يجمع سلاحاً قديماً بالنار؟","answer":"السهم الملتهب","accepted":["السهم"],"note":""},{"id":"d-p1-football-saudi-09","category":"football-saudi","tier":200,"prompt":"مهاجم قضى مسيرته كلها مع الهلال، باستثناء إعارة إلى وولفرهامبتون الإنجليزي. من هو؟","answer":"سامي الجابر","accepted":["سامي","الجابر"],"note":""},{"id":"d-p1-football-saudi-35","category":"football-saudi","tier":200,"prompt":"من نجم ليفربول السابق الذي أصبح مدرباً للاتفاق عام 2023؟","answer":"ستيفن جيرارد","accepted":["جيرارد"],"note":""},{"id":"d-p1-football-saudi-36","category":"football-saudi","tier":200,"prompt":"مدرب برتغالي حقق لقب الدوري السعودي مع الهلال ثم مع النصر. من هو؟","answer":"جورجي جيسوس","accepted":["جيسوس","خورخي خيسوس","جورج جيسوس","خيسوس","جيزوس"],"note":""},{"id":"d-p1-football-saudi-04","category":"football-saudi","tier":200,"prompt":"نظام استُحدث موسم 1990-1991 لتحديد بطل الدوري السعودي، واسمه شكل هندسي ومعدن ثمين. ما هو؟","answer":"المربع الذهبي","accepted":["نظام المربع الذهبي","المربع"],"note":""},{"id":"d-p1-football-saudi-12","category":"football-saudi","tier":200,"prompt":"لعب للاتحاد منذ عام 1993، ثم غادره عام 2013 منتقلاً إلى النصر. من هذا النجم؟","answer":"محمد نور","accepted":["نور"],"note":""},{"id":"d-p1-football-saudi-16","category":"football-saudi","tier":200,"prompt":"مع أي نادٍ سعودي توّج الجزائري رياض محرز بلقبين في دوري أبطال آسيا للنخبة؟","answer":"الأهلي","accepted":["الراقي","النادي الأهلي","أهلي جدة"],"note":""},{"id":"d-p1-football-saudi-24","category":"football-saudi","tier":200,"prompt":"من المهاجم السوري الذي توّج هدافاً للدوري السعودي ثلاث سنوات متتالية مع الأهلي؟","answer":"عمر السومة","accepted":["السومة"],"note":""},{"id":"d-p1-football-saudi-20","category":"football-saudi","tier":400,"prompt":"بعقد لمباراتين فقط، أي نجم بلغاري ساعد النصر على حصد كأس الكؤوس الآسيوية عام 1998؟","answer":"هريستو ستويتشكوف","accepted":["ستويتشكوف","ستويشكوف","ستويكوف"],"note":""},{"id":"d-p1-football-saudi-26","category":"football-saudi","tier":400,"prompt":"توّج هدافاً للدوري السعودي عام 2022 بقميصين: الشباب، ثم الهلال بعد انتقاله الشتوي. من هو؟","answer":"أوديون إيغالو","accepted":["إيغالو","إيجالو","إيقالو"],"note":""},{"id":"d-p1-football-saudi-10","category":"football-saudi","tier":400,"prompt":"بلقب أي ثعبان اشتهر محيسن الجمعان، لأن تسديداته الملتفة تشبه جسمه؟","answer":"الكوبرا","accepted":[],"note":"لا تُقبل «الأفعى» أو «الثعبان»؛ المطلوب اسم الثعبان تحديداً"},{"id":"d-p1-football-saudi-31","category":"football-saudi","tier":400,"prompt":"مفاجأة نهائي 2022: أي نادٍ توّج بكأس الملك لأول مرة في تاريخه بعد فوزه على الهلال؟","answer":"الفيحاء","accepted":["نادي الفيحاء"],"note":""},{"id":"d-p1-football-saudi-37","category":"football-saudi","tier":400,"prompt":"قاد الاتحاد إلى ثنائية الدوري وكأس الملك في موسمه الأول 2024-2025. من هذا المدرب الفرنسي؟","answer":"لوران بلان","accepted":["بلان"],"note":""},{"id":"d-p1-football-saudi-18","category":"football-saudi","tier":400,"prompt":"لاعب برتغالي انضم إلى النصر عام 2025، فتوّج بالدوري واختير أفضل لاعب في موسمه الأول. من هو؟","answer":"جواو فيليكس","accepted":["فيليكس","جواو فليكس","فيلكس"],"note":""},{"id":"d-p1-football-saudi-19","category":"football-saudi","tier":400,"prompt":"في نهائي أي بطولة سجّل رونالدو هدفي فوز النصر على الهلال 2-1 صيف 2023؟","answer":"البطولة العربية للأندية","accepted":["البطولة العربية","البطولة العربية للأندية الأبطال","كأس الملك سلمان للأندية","كأس الملك سلمان للأندية العربية","كأس العرب للأندية","كأس الملك سلمان"],"note":"لا تُقبل «كأس الملك» وحدها فهي بطولة محلية مختلفة"},{"id":"d-p1-football-saudi-11","category":"football-saudi","tier":400,"prompt":"في أي نادٍ من حائل بدأ الحارس محمد الدعيع مشواره الكروي؟","answer":"الطائي","accepted":["نادي الطائي"],"note":""},{"id":"d-p1-football-saudi-32","category":"football-saudi","tier":400,"prompt":"فاز الاتحاد بنهائي كأس الملك 2025 بنتيجة 3-1. على حساب أي نادٍ؟","answer":"القادسية","accepted":["نادي القادسية"],"note":""},{"id":"d-p1-football-saudi-38","category":"football-saudi","tier":400,"prompt":"أي مدرب ألماني قاد نادياً سعودياً إلى لقبين متتاليين في دوري أبطال آسيا؟","answer":"ماتياس يايسله","accepted":["يايسله","ييسله"],"note":""},{"id":"d-p1-football-saudi-33","category":"football-saudi","tier":600,"prompt":"ما النادي الذي توّج بأول نسخة من كأس السوبر السعودي، بعد فوزه على الاتحاد عام 2013؟","answer":"الفتح","accepted":["نادي الفتح"],"note":""},{"id":"d-p1-football-saudi-06","category":"football-saudi","tier":600,"prompt":"في أول تتويج للاتحاد بدوري أبطال آسيا، خسر ذهاب النهائي 1-3. بأي نتيجة فاز في الإياب؟","answer":"5-0","accepted":["0-5","خمسة صفر","5 مقابل 0","خماسية نظيفة"],"note":"النتيجة الدقيقة مطلوبة"},{"id":"d-p1-football-saudi-13","category":"football-saudi","tier":600,"prompt":"في أي دولة أوروبية احترف حسين عبدالغني عام 2008؟","answer":"سويسرا","accepted":["نيوشاتل","نيوشاتل زاماكس","زاماكس"],"note":"يُقبل اسم ناديه السويسري نيوشاتل زاماكس"},{"id":"d-p1-football-saudi-21","category":"football-saudi","tier":600,"prompt":"من النجم البرازيلي الذي انضم إلى الهلال عام 1978 واعتزل معه عام 1981؟","answer":"ريفيلينو","accepted":["ريفلينو","روبرتو ريفيلينو"],"note":""},{"id":"d-p1-football-saudi-40","category":"football-saudi","tier":600,"prompt":"من المدرب السويسري الذي قاد الأهلي إلى لقب الدوري لأول مرة منذ 34 عاماً؟","answer":"كريستيان غروس","accepted":["غروس","جروس","كريستيان جروس"],"note":""},{"id":"d-p1-general-knowledge-21","category":"general-knowledge","tier":200,"prompt":"من صاحب الهدف في مرمى بلجيكا بمونديال 1994، الذي حلّ سادساً في استفتاء فيفا لأهداف القرن؟","answer":"سعيد العويران","accepted":["العويران","سعيد"],"note":""},{"id":"d-p1-general-knowledge-26","category":"general-knowledge","tier":200,"prompt":"أي فنان سعودي عُرف بألقاب منها «قيثارة الشرق» و«الحنجرة الذهبية» و«صوت الأرض»؟","answer":"طلال مداح","accepted":["طلال"],"note":""},{"id":"d-p1-general-knowledge-01","category":"general-knowledge","tier":200,"prompt":"يظن كثيرون أن سنام الجمل خزان للماء، لكنه في الحقيقة مخزن احتياطي للطاقة. فماذا يخزن؟","answer":"الدهون","accepted":["الدهن","الشحم","نسيج دهني","الأنسجة الدهنية"],"note":""},{"id":"d-p1-general-knowledge-16","category":"general-knowledge","tier":200,"prompt":"أكمل بيت المتنبي الذي يُروى أن غلامه ذكّره به حين أراد الهرب: الخيل والليل والبيداء…","answer":"تعرفني","accepted":["تعرفني والسيف والرمح والقرطاس والقلم"],"note":""},{"id":"d-p1-general-knowledge-22","category":"general-knowledge","tier":200,"prompt":"أي سباق صحراوي عالمي انتقل إلى السعودية عام 2020؟","answer":"رالي داكار","accepted":["داكار","رالي دكار","دكار"],"note":""},{"id":"d-p1-general-knowledge-27","category":"general-knowledge","tier":200,"prompt":"فن شعبي سعودي يقف فيه الرجال في صفين متقابلين حاملين السيوف، مع قرع الطبول وإلقاء الشعر. ما اسمه؟","answer":"العرضة","accepted":["العرضة النجدية","العرضة السعودية"],"note":""},{"id":"d-p1-general-knowledge-07","category":"general-knowledge","tier":200,"prompt":"اسم «جبرلتار» تحريف أوروبي لاسم عربي سُميت به المنطقة نسبة إلى قائد عسكري مسلم. من هو؟","answer":"طارق بن زياد","accepted":["طارق"],"note":""},{"id":"d-p1-general-knowledge-11","category":"general-knowledge","tier":200,"prompt":"قصر كان مسرحاً لمعركة فتح الرياض عام 1902، التي استعاد فيها الملك عبدالعزيز المدينة. ما اسمه؟","answer":"المصمك","accepted":["قصر المصمك","حصن المصمك"],"note":""},{"id":"d-p1-general-knowledge-28","category":"general-knowledge","tier":400,"prompt":"ما اسم «الكابتن ماجد» في النسخة اليابانية الأصلية؟","answer":"تسوباسا","accepted":["كابتن تسوباسا","سوباسا","تسوباسا أوزورا","كابتن سوباسا"],"note":""},{"id":"d-p1-general-knowledge-09","category":"general-knowledge","tier":400,"prompt":"من بين الدول التي لا تجري فيها أنهار دائمة طوال العام، أيها الأكبر مساحة بفارق كبير؟","answer":"السعودية","accepted":["المملكة العربية السعودية","المملكة"],"note":""},{"id":"d-p1-general-knowledge-14","category":"general-knowledge","tier":400,"prompt":"كانت سكة حديد الحجاز العثمانية تنطلق من دمشق، فأين كانت تنتهي؟","answer":"المدينة المنورة","accepted":["المدينة","طيبة"],"note":""},{"id":"d-p1-general-knowledge-04","category":"general-knowledge","tier":400,"prompt":"غلافه الجوي الكثيف يحبس الحرارة حتى صار سطحه حاراً بما يكفي لإذابة الرصاص، فهو أسخن كواكب المجموعة الشمسية. ما هو؟","answer":"الزهرة","accepted":["كوكب الزهرة","فينوس"],"note":""},{"id":"d-p1-general-knowledge-08","category":"general-knowledge","tier":400,"prompt":"ما اسم أعلى نقطة في السعودية رسمياً، بارتفاع 3015 متراً؟","answer":"جبل السودة","accepted":["السودة","جبال السودة"],"note":""},{"id":"d-p1-general-knowledge-37","category":"general-knowledge","tier":200,"prompt":"حتى عام 2026، يُخطط لمبنى سعودي أن يكون أول مبنى في العالم يبلغ ارتفاعه كيلومتراً كاملاً. ما هو؟","answer":"برج جدة","accepted":["برج المملكة بجدة"],"note":"اسمه السابق «برج المملكة»، فيُقبل إن قصد اللاعب برج جدة؛ ولا يُقبل برج المملكة في الرياض."},{"id":"d-p1-general-knowledge-13","category":"general-knowledge","tier":400,"prompt":"قبل أن يتحول اسم بلادنا بمرسوم إلى الاسم الذي نعرفه اليوم، ماذا كان اسمها الرسمي؟","answer":"مملكة الحجاز ونجد وملحقاتها","accepted":["مملكة الحجاز ونجد","مملكة نجد والحجاز","مملكة نجد والحجاز وملحقاتها"],"note":"يُقبل دون «وملحقاتها» وبتقديم نجد على الحجاز."},{"id":"d-p1-general-knowledge-29","category":"general-knowledge","tier":600,"prompt":"أطلق رئيس دولة عربية لقب «فنان العرب» على محمد عبده في حفلة خلال الثمانينات. ما هذه الدولة؟","answer":"تونس","accepted":["الجمهورية التونسية"],"note":"أطلق اللقب الرئيس التونسي الحبيب بورقيبة."},{"id":"d-p1-general-knowledge-32","category":"general-knowledge","tier":600,"prompt":"اسم «الشاورما» تعريب لكلمة تركية عثمانية، فما معناها الحرفي؟","answer":"التدوير","accepted":["الدوران","اللف","الدوار","يدور","يلف"],"note":""},{"id":"d-p1-general-knowledge-35","category":"general-knowledge","tier":600,"prompt":"ابتكر سيزر كارديني سلطة «السيزر» عام 1924 في مطعمه. في أي دولة كان ذلك المطعم؟","answer":"المكسيك","accepted":["مكسيكو","تيخوانا"],"note":""},{"id":"d-p1-general-knowledge-39","category":"general-knowledge","tier":600,"prompt":"بحسب «غينيس» حتى 2026، ما أقدم مؤسسة تعليمية ما زالت تعمل في العالم، وقد تأسست في فاس عام 859م؟","answer":"جامعة القرويين","accepted":["القرويين","جامع القرويين"],"note":"لا يُقبل «القيروان» فهي مدينة في تونس."},{"id":"d-p1-general-knowledge-05","category":"general-knowledge","tier":600,"prompt":"أصغر عظمة وأخفها في جسم الإنسان سُميت لشبهها بالحلقة التي يضع فيها الفارس قدمه. ما اسمها؟","answer":"الركاب","accepted":["عظمة الركاب","عظم الركاب"],"note":""},{"id":"d-p1-general-knowledge-10","category":"general-knowledge","tier":400,"prompt":"دولة تملك أطول خط ساحلي بين دول العالم، وهي الثانية عالمياً في المساحة. ما هي؟","answer":"كندا","accepted":[],"note":""},{"id":"d-p1-general-knowledge-19","category":"general-knowledge","tier":600,"prompt":"يحمل كتاب «كليلة ودمنة» اسمي حيوانين من النوع نفسه. ما هذا الحيوان؟","answer":"ابن آوى","accepted":["بنات آوى","الواوي","ابنا آوى","أبناء آوى"],"note":"لا يُقبل «الثعلب» أو «الذئب»."},{"id":"d-p1-general-knowledge-30","category":"general-knowledge","tier":600,"prompt":"ما الفيلم الذي افتُتح به أول عرض سينمائي عام في السعودية بعد عودة السينما، في أبريل 2018؟","answer":"بلاك بانثر","accepted":["النمر الأسود","بلاك بانذر","بلاك بنثر"],"note":""},{"id":"d-p1-general-knowledge-34","category":"general-knowledge","tier":200,"prompt":"مدينة ساحلية يمنية اشتهرت قديماً بتجارة البن، ومنها أخذت قهوة «موكا» اسمها. ما هي؟","answer":"المخا","accepted":["المخاء"],"note":""}],"reserve":[{"id":"d-p1-saudi-01","category":"saudi","tier":200,"prompt":"في شعار المملكة، ما الذي يرمز إلى الحيوية والنماء والصبر؟","answer":"النخلة","accepted":["النخل"],"note":""},{"id":"d-p1-saudi-06","category":"saudi","tier":200,"prompt":"ما اسم أكبر صحراء رملية متصلة في العالم؟","answer":"الربع الخالي","accepted":["الربع"],"note":""},{"id":"d-p1-saudi-08","category":"saudi","tier":400,"prompt":"أكمل لقب مدينة أبها: سيدة…","answer":"الضباب","accepted":["سيدة الضباب"],"note":""},{"id":"d-p1-saudi-16","category":"saudi","tier":200,"prompt":"كان مسرحاً لمعركة عام 1902 التي استعاد فيها الملك عبدالعزيز الرياض، فما اسم هذا المعلم؟","answer":"قصر المصمك","accepted":["المصمك","حصن المصمك"],"note":""},{"id":"d-p1-saudi-19","category":"saudi","tier":400,"prompt":"في أي عاصمة عربية تأسست منظمة «أوبك» عام 1960، وكانت السعودية من أعضائها الخمسة الأوائل؟","answer":"بغداد","accepted":[],"note":""},{"id":"d-p1-saudi-31","category":"saudi","tier":200,"prompt":"كم ريالاً يساوي الدولار الأمريكي في سعر الربط الثابت المعمول به منذ عام 1986؟","answer":"3.75","accepted":["3.75 ريال","ثلاثة وثلاثة أرباع","3 ريالات و75 هللة","ثلاثة ريالات وخمسة وسبعون هللة","ثلاثة وخمسة وسبعين"],"note":""},{"id":"d-p1-saudi-36","category":"saudi","tier":200,"prompt":"من هو أول رائد فضاء عربي، وأول رائد فضاء مسلم؟","answer":"سلطان بن سلمان","accepted":["الأمير سلطان بن سلمان","الأمير سلطان"],"note":""},{"id":"d-p1-saudi-38","category":"saudi","tier":400,"prompt":"ما أول موقع سعودي أُدرج في قائمة التراث العالمي لليونسكو؟","answer":"مدائن صالح","accepted":["الحجر","موقع الحجر"],"note":"«العلا» وحدها لا تكفي"},{"id":"d-p1-football-saudi-03","category":"football-saudi","tier":200,"prompt":"بمشاركته في أول نسخة من بطولة دولية كبرى للأندية، اكتسب النصر لقباً يردده جمهوره. ما هو؟","answer":"العالمي","accepted":[],"note":"لا يُقبل «فارس نجد» فهو لقب آخر للنادي لا علاقة له بهذه القصة"},{"id":"d-p1-football-saudi-15","category":"football-saudi","tier":200,"prompt":"إلى أي نادٍ سعودي انتقل كريم بنزيما عام 2023؟","answer":"الاتحاد","accepted":["العميد","نادي الاتحاد","اتحاد جدة"],"note":""},{"id":"d-p1-football-saudi-17","category":"football-saudi","tier":200,"prompt":"نجم فرنسي أمضى سبعة مواسم مع تشيلسي، ثم انتقل إلى الدوري السعودي عام 2023. من هو؟","answer":"نغولو كانتي","accepted":["كانتي","انغولو كانتي","نجولو كانتي"],"note":""},{"id":"d-p1-football-saudi-23","category":"football-saudi","tier":200,"prompt":"حتى نهاية موسم 2025-2026، من يتصدر هدافي الدوري السعودي عبر كل الحقب منذ 1976-1977؟","answer":"ماجد عبدالله","accepted":["ماجد عبد الله","ماجد","السهم الملتهب"],"note":"السؤال عن المتصدر لا عن الرقم؛ المصادر تختلف في رصيده (178 أو 189 هدفاً)، وقائمة رابطة المحترفين منذ 2008 وحدها تضع السومة أولاً."},{"id":"d-p1-football-saudi-25","category":"football-saudi","tier":200,"prompt":"افتتح نجم برازيلي مشواره الرسمي مع الأهلي بهاتريك في مرمى الحزم عام 2023. من هو؟","answer":"روبرتو فيرمينو","accepted":["فيرمينو","فرمينو"],"note":""},{"id":"d-p1-football-saudi-28","category":"football-saudi","tier":400,"prompt":"حتى نهاية موسم 2025-2026، من ثاني هدافي الدوري السعودي عبر كل الحقب، وقد لعب للوحدة والشباب والهلال؟","answer":"ناصر الشمراني","accepted":["الشمراني"],"note":"المقصود الترتيب عبر كل الحقب؛ قائمة رابطة المحترفين (منذ 2008) وحدها تضعه ثالثاً."},{"id":"d-p1-football-saudi-29","category":"football-saudi","tier":200,"prompt":"بماذا يُلقّب ملعب مدينة الملك عبدالله الرياضية في جدة؟","answer":"الجوهرة المشعة","accepted":["الجوهرة","ملعب الجوهرة"],"note":""},{"id":"d-p1-general-knowledge-03","category":"general-knowledge","tier":200,"prompt":"طعام حلو عُثر على عينات منه في مواقع أثرية، وثبت أنها ما زالت صالحة للأكل بعد آلاف السنين. ما هو؟","answer":"العسل","accepted":[],"note":""},{"id":"d-p1-general-knowledge-06","category":"general-knowledge","tier":200,"prompt":"مدينة واحدة على قارتين، يعيش نحو ثلثي سكانها في أوروبا والباقون في آسيا. ما هي؟","answer":"إسطنبول","accepted":["إستانبول","اسطمبول"],"note":""},{"id":"d-p1-general-knowledge-12","category":"general-knowledge","tier":200,"prompt":"ست من عجائب الدنيا السبع القديمة اندثرت، وبقيت واحدة فقط حتى اليوم. ما هي؟","answer":"الهرم الأكبر","accepted":["هرم خوفو","هرم الجيزة الأكبر","أهرامات الجيزة","الأهرامات","الهرم"],"note":"يُقبل «الأهرامات» أو «هرم خوفو»."},{"id":"d-p1-general-knowledge-17","category":"general-knowledge","tier":200,"prompt":"قصة واحدة تجمع كل حكايات «ألف ليلة وليلة»، بطلتها زوجة الملك. ما اسمها؟","answer":"شهرزاد","accepted":["شهرازاد","شيرزاد"],"note":""},{"id":"d-p1-general-knowledge-36","category":"general-knowledge","tier":400,"prompt":"من أول إنسان سافر إلى الفضاء الخارجي، في أول رحلة فضائية مأهولة ناجحة؟","answer":"يوري غاغارين","accepted":["غاغارين","جاجارين","يوري جاجارين","قاقارين"],"note":""}]};
+const BANK = {"label":"الدفعة التجريبية","categories":[{"slug":"saudi","name":"السعودية","desc":"كل شي عن بلدنا"},{"slug":"football-saudi","name":"كرة قدم سعودية","desc":"الدوري والأندية والنجوم"},{"slug":"general-knowledge","name":"معلومات عامة","desc":"شوي من كل شي"}],"questions":[{"id":"d-p1-saudi-07","category":"saudi","tier":200,"prompt":"اسم عاصمتنا جمعٌ لأي كلمة؟","answer":"روضة","accepted":[],"note":"المطلوب المفرد «روضة»؛ لا تُقبل «رياض» لأنها الجمع"},{"id":"d-p1-saudi-27","category":"saudi","tier":200,"prompt":"طلبت مكتبة الكونغرس الأمريكية أجزاءً من مسلسل رمضاني كوميدي سعودي لوضعها في أرشيفها، فما هو؟","answer":"طاش ما طاش","accepted":["طاش"],"note":""},{"id":"d-p1-saudi-21","category":"saudi","tier":200,"prompt":"أي رالي عالمي يُقام في المملكة العربية السعودية منذ عام 2020؟","answer":"داكار","accepted":["رالي داكار","دكار","رالي دكار"],"note":""},{"id":"d-p1-saudi-02","category":"saudi","tier":200,"prompt":"يوم التأسيس يخلّد قيام الدولة السعودية الأولى، فمن الإمام الذي أسّسها؟","answer":"محمد بن سعود","accepted":["الإمام محمد بن سعود"],"note":""},{"id":"d-p1-saudi-12","category":"saudi","tier":200,"prompt":"ناطحة سحاب مخطط أن تكون الأطول في العالم، وما زالت تحت الإنشاء حتى 2026، ففي أي مدينة سعودية تقع؟","answer":"جدة","accepted":[],"note":""},{"id":"d-p1-saudi-22","category":"saudi","tier":200,"prompt":"يلقّبه مشجعوه بـ«العالمي» لأنه مثّل قارة آسيا في أول كأس عالم للأندية، فما هذا النادي السعودي؟","answer":"النصر","accepted":["نادي النصر"],"note":""},{"id":"d-p1-saudi-26","category":"saudi","tier":200,"prompt":"أي سوق تاريخي أعادت المملكة إحياءه بعد توقف دام 1300 سنة؟","answer":"عكاظ","accepted":["سوق عكاظ"],"note":""},{"id":"d-p1-saudi-11","category":"saudi","tier":200,"prompt":"فازت السعودية عام 2023 باستضافة أي معرض دولي؟","answer":"إكسبو 2030","accepted":["إكسبو","معرض إكسبو","إكسبو الرياض","إكسبو الرياض 2030","Expo 2030","Expo"],"note":""},{"id":"d-p1-saudi-34","category":"saudi","tier":400,"prompt":"أسسها عام 1977 رواد زراعة أيرلنديون مع أمير سعودي، فما هذه الشركة؟","answer":"المراعي","accepted":["شركة المراعي"],"note":""},{"id":"d-p1-saudi-09","category":"saudi","tier":400,"prompt":"في أي جزر سعودية يوجد السمك الببغاء ويُقام مهرجان «الحريد» السياحي؟","answer":"فرسان","accepted":["جزر فرسان","جزيرة فرسان"],"note":""},{"id":"d-p1-saudi-13","category":"saudi","tier":200,"prompt":"أي مشروع سعودي سجّلته غينيس عام 2025 أطول شبكة نقل بلا سائق في العالم؟","answer":"قطار الرياض","accepted":["مترو الرياض","ميترو الرياض"],"note":""},{"id":"d-p1-saudi-18","category":"saudi","tier":400,"prompt":"اكتُشف النفط لأول مرة في المملكة عام 1938 في البئر المعروفة بـ«الدمام رقم 7»، فبماذا لُقّبت؟","answer":"بئر الخير","accepted":["الخير"],"note":""},{"id":"d-p1-saudi-24","category":"saudi","tier":400,"prompt":"ما اسم سباق الخيل الدولي الذي يُعد، حتى 2026، أغلى سباق للخيل في العالم؟","answer":"كأس السعودية","accepted":["Saudi Cup"],"note":""},{"id":"d-p1-saudi-28","category":"saudi","tier":400,"prompt":"جبال أي منطقة سعودية تُعد المركز الرئيسي لزراعة البن الخولاني؟","answer":"جازان","accepted":["جيزان","منطقة جازان"],"note":""},{"id":"d-p1-saudi-15","category":"saudi","tier":400,"prompt":"الكل سمع بمشروع «نيوم»، لكن ما معنى اسمه؟","answer":"المستقبل الجديد","accepted":["نيو مستقبل","New Future"],"note":"يكفي أي صيغة تجمع «جديد» و«مستقبل»؛ «الجديد» أو «المستقبل» وحدها لا تكفي"},{"id":"d-p1-saudi-33","category":"saudi","tier":400,"prompt":"كلمة «أرامكو» اختصار لاسم إنجليزي، فما معناه بالعربية؟","answer":"شركة الزيت العربية الأمريكية","accepted":["الزيت العربية الأمريكية","العربية الأمريكية","الشركة العربية الأمريكية للزيت","شركة النفط العربية الأمريكية","Arabian American Oil Company"],"note":"يكفي ذكر «العربية الأمريكية»"},{"id":"d-p1-saudi-23","category":"saudi","tier":200,"prompt":"بطولة سنوية لألعاب الفيديو أُقيمت صيفاً في بوليفارد سيتي بالرياض. ما اسمها؟","answer":"كأس العالم للرياضات الإلكترونية","accepted":["كأس العالم للألعاب الإلكترونية","Esports World Cup","EWC"],"note":"تكفي أي صيغة لـ«كأس العالم» للرياضات أو الألعاب الإلكترونية؛ «جيمرز 8» و«موسم الرياض» لا تُقبل"},{"id":"d-p1-saudi-03","category":"saudi","tier":600,"prompt":"بعد «عام القهوة السعودية» 2022 و«عام الإبل» 2024، بأي اسم سُمّي عام 2026 في المملكة؟","answer":"الذكاء الاصطناعي","accepted":["عام الذكاء الاصطناعي","AI","الذكاء الصناعي","عام الذكاء الصناعي"],"note":""},{"id":"d-p1-saudi-25","category":"saudi","tier":400,"prompt":"قبل أن يحمل اسمه الحالي، بأي اسم عُرف نادي الهلال عند تأسيسه؟","answer":"الأولمبي","accepted":["النادي الأولمبي"],"note":""},{"id":"d-p1-saudi-40","category":"saudi","tier":600,"prompt":"فضية سباق 400 متر حواجز في أولمبياد سيدني 2000 كانت أول ميدالية أولمبية لرياضي سعودي، فمن صاحبها؟","answer":"هادي صوعان","accepted":["صوعان","هادي الصميلي","هادي صوعان الصميلي","هادي سوعان","سوعان"],"note":""},{"id":"d-p1-saudi-20","category":"saudi","tier":400,"prompt":"أي جزء من الدرعية القديمة أُضيف إلى قائمة التراث العالمي لليونسكو عام 2010؟","answer":"حي الطريف","accepted":["الطريف"],"note":"«الدرعية» أو «البجيري» لا تكفي؛ المطلوب اسم الحي المسجّل"},{"id":"d-p1-saudi-39","category":"saudi","tier":600,"prompt":"ما أول فيلم روائي طويل صُوّر بالكامل في السعودية؟","answer":"وجدة","accepted":[],"note":""},{"id":"d-p1-saudi-30","category":"saudi","tier":600,"prompt":"بماذا يُعرف الفن المستخدم في نقوش قرية رجال ألمع، والمسجّل في اليونسكو عام 2017؟","answer":"القَط العسيري","accepted":["فن القط","القط"],"note":""},{"id":"d-p1-saudi-04","category":"saudi","tier":600,"prompt":"من الشاعر الذي كتب كلمات النشيد الوطني السعودي؟","answer":"إبراهيم خفاجي","accepted":["خفاجي"],"note":""},{"id":"d-p1-football-saudi-05","category":"football-saudi","tier":200,"prompt":"مفارقة موسم 2025-2026: أي نادٍ أنهى الدوري السعودي دون أي خسارة، ومع ذلك لم يتوّج باللقب؟","answer":"الهلال","accepted":["الزعيم","نادي الهلال"],"note":""},{"id":"d-p1-football-saudi-01","category":"football-saudi","tier":200,"prompt":"في كأس العالم للأندية 2025، أي فريق إنجليزي أقصاه الهلال؟","answer":"مانشستر سيتي","accepted":["مان سيتي","السيتي"],"note":"لا تُقبل «مانشستر» وحدها لأنها تحتمل مانشستر يونايتد"},{"id":"d-p1-football-saudi-09","category":"football-saudi","tier":200,"prompt":"مهاجم قضى مسيرته كلها مع الهلال، باستثناء إعارة إلى وولفرهامبتون الإنجليزي. من هو؟","answer":"سامي الجابر","accepted":["سامي","الجابر"],"note":""},{"id":"d-p1-football-saudi-35","category":"football-saudi","tier":200,"prompt":"من نجم ليفربول السابق الذي أصبح مدرباً للاتفاق عام 2023؟","answer":"ستيفن جيرارد","accepted":["جيرارد"],"note":""},{"id":"d-p1-football-saudi-36","category":"football-saudi","tier":200,"prompt":"مدرب برتغالي حقق لقب الدوري السعودي مع الهلال ثم مع النصر. من هو؟","answer":"جورجي جيسوس","accepted":["جيسوس","خورخي خيسوس","جورج جيسوس","خيسوس","جيزوس"],"note":""},{"id":"d-p1-football-saudi-04","category":"football-saudi","tier":200,"prompt":"ما اسم النظام الذي استُحدث موسم 1990-1991 لتحديد بطل الدوري السعودي؟","answer":"المربع الذهبي","accepted":["نظام المربع الذهبي","المربع"],"note":""},{"id":"d-p1-football-saudi-12","category":"football-saudi","tier":200,"prompt":"لعب للاتحاد منذ عام 1993، ثم غادره عام 2013 منتقلاً إلى النصر. من هذا النجم؟","answer":"محمد نور","accepted":["نور"],"note":""},{"id":"d-p1-football-saudi-16","category":"football-saudi","tier":200,"prompt":"مع أي نادٍ سعودي توّج الجزائري رياض محرز بلقبين في دوري أبطال آسيا للنخبة؟","answer":"الأهلي","accepted":["الراقي","النادي الأهلي","أهلي جدة"],"note":""},{"id":"d-p1-football-saudi-24","category":"football-saudi","tier":200,"prompt":"من المهاجم السوري الذي توّج هدافاً للدوري السعودي ثلاث سنوات متتالية مع الأهلي؟","answer":"عمر السومة","accepted":["السومة"],"note":""},{"id":"d-p1-football-saudi-20","category":"football-saudi","tier":400,"prompt":"بعقد لمباراتين فقط، أي نجم عالمي ساعد النصر على حصد كأس الكؤوس الآسيوية عام 1998؟","answer":"هريستو ستويتشكوف","accepted":["ستويتشكوف","ستويشكوف","ستويكوف"],"note":""},{"id":"d-p1-football-saudi-26","category":"football-saudi","tier":400,"prompt":"توّج هدافاً للدوري السعودي عام 2022 بقميصين: الشباب، ثم الهلال بعد انتقاله الشتوي. من هو؟","answer":"أوديون إيغالو","accepted":["إيغالو","إيجالو","إيقالو"],"note":""},{"id":"d-p1-football-saudi-31","category":"football-saudi","tier":400,"prompt":"مفاجأة نهائي 2022: أي نادٍ توّج بكأس الملك لأول مرة في تاريخه بعد فوزه على الهلال؟","answer":"الفيحاء","accepted":["نادي الفيحاء"],"note":""},{"id":"d-p1-football-saudi-37","category":"football-saudi","tier":400,"prompt":"قاد الاتحاد إلى ثنائية الدوري وكأس الملك في موسمه الأول 2024-2025. من هذا المدرب الفرنسي؟","answer":"لوران بلان","accepted":["بلان"],"note":""},{"id":"d-p1-football-saudi-18","category":"football-saudi","tier":400,"prompt":"لاعب برتغالي انضم إلى النصر عام 2025، فتوّج بالدوري واختير أفضل لاعب في موسمه الأول. من هو؟","answer":"جواو فيليكس","accepted":["فيليكس","جواو فليكس","فيلكس"],"note":""},{"id":"d-p1-football-saudi-19","category":"football-saudi","tier":400,"prompt":"في نهائي أي بطولة سجّل رونالدو هدفي فوز النصر على الهلال 2-1 صيف 2023؟","answer":"البطولة العربية للأندية","accepted":["البطولة العربية","البطولة العربية للأندية الأبطال","كأس الملك سلمان للأندية","كأس الملك سلمان للأندية العربية","كأس العرب للأندية","كأس الملك سلمان"],"note":"لا تُقبل «كأس الملك» وحدها فهي بطولة محلية مختلفة"},{"id":"d-p1-football-saudi-11","category":"football-saudi","tier":400,"prompt":"في أي نادٍ بدأ الحارس محمد الدعيع مشواره الكروي؟","answer":"الطائي","accepted":["نادي الطائي"],"note":""},{"id":"d-p1-football-saudi-32","category":"football-saudi","tier":400,"prompt":"فاز الاتحاد بنهائي كأس الملك 2025 بنتيجة 3-1. على حساب أي نادٍ؟","answer":"القادسية","accepted":["نادي القادسية"],"note":""},{"id":"d-p1-football-saudi-38","category":"football-saudi","tier":400,"prompt":"أي مدرب ألماني قاد نادياً سعودياً إلى لقبين متتاليين في دوري أبطال آسيا؟","answer":"ماتياس يايسله","accepted":["يايسله","ييسله"],"note":""},{"id":"d-p1-football-saudi-33","category":"football-saudi","tier":600,"prompt":"ما النادي الذي توّج بأول نسخة من كأس السوبر السعودي، بعد فوزه على الاتحاد عام 2013؟","answer":"الفتح","accepted":["نادي الفتح"],"note":""},{"id":"d-p1-football-saudi-06","category":"football-saudi","tier":600,"prompt":"في أول تتويج للاتحاد بدوري أبطال آسيا، خسر ذهاب النهائي 1-3. بأي نتيجة فاز في الإياب؟","answer":"5-0","accepted":["0-5","خمسة صفر","5 مقابل 0","خماسية نظيفة"],"note":"النتيجة الدقيقة مطلوبة"},{"id":"d-p1-football-saudi-13","category":"football-saudi","tier":600,"prompt":"في أي دولة أوروبية احترف حسين عبدالغني عام 2008؟","answer":"سويسرا","accepted":["نيوشاتل","نيوشاتل زاماكس","زاماكس"],"note":"يُقبل اسم ناديه السويسري نيوشاتل زاماكس"},{"id":"d-p1-football-saudi-21","category":"football-saudi","tier":400,"prompt":"من النجم البرازيلي الذي انضم إلى الهلال عام 1978 واعتزل معه عام 1981؟","answer":"ريفيلينو","accepted":["ريفلينو","روبرتو ريفيلينو"],"note":""},{"id":"d-p1-football-saudi-40","category":"football-saudi","tier":600,"prompt":"من المدرب السويسري الذي قاد الأهلي إلى لقب الدوري لأول مرة منذ 34 عاماً؟","answer":"كريستيان غروس","accepted":["غروس","جروس","كريستيان جروس"],"note":""},{"id":"d-p1-general-knowledge-21","category":"general-knowledge","tier":200,"prompt":"من صاحب الهدف في مرمى بلجيكا بمونديال 1994، الذي حلّ سادساً في استفتاء فيفا لأهداف القرن؟","answer":"سعيد العويران","accepted":["العويران","سعيد"],"note":""},{"id":"d-p1-general-knowledge-26","category":"general-knowledge","tier":200,"prompt":"أي فنان سعودي عُرف بألقاب منها «قيثارة الشرق» و«الحنجرة الذهبية» و«صوت الأرض»؟","answer":"طلال مداح","accepted":["طلال"],"note":""},{"id":"d-p1-general-knowledge-01","category":"general-knowledge","tier":200,"prompt":"يظن كثيرون أن سنام الجمل يخزن الماء، فماذا يخزن في الحقيقة؟","answer":"الدهون","accepted":["الدهن","الشحم","نسيج دهني","الأنسجة الدهنية"],"note":""},{"id":"d-p1-general-knowledge-16","category":"general-knowledge","tier":200,"prompt":"أكمل بيت المتنبي الذي يُروى أن غلامه ذكّره به حين أراد الهرب: الخيل والليل والبيداء…","answer":"تعرفني","accepted":["تعرفني والسيف والرمح والقرطاس والقلم"],"note":""},{"id":"d-p1-general-knowledge-27","category":"general-knowledge","tier":200,"prompt":"فن شعبي سعودي يقف فيه الرجال في صفين متقابلين حاملين السيوف، مع قرع الطبول وإلقاء الشعر. ما اسمه؟","answer":"العرضة","accepted":["العرضة النجدية","العرضة السعودية"],"note":""},{"id":"d-p1-general-knowledge-07","category":"general-knowledge","tier":200,"prompt":"اسم «جبرلتار» تحريف أوروبي لاسم عربي سُميت به المنطقة نسبة إلى قائد عسكري مسلم. من هو؟","answer":"طارق بن زياد","accepted":["طارق"],"note":""},{"id":"d-p1-general-knowledge-11","category":"general-knowledge","tier":200,"prompt":"قصر كان مسرحاً لمعركة فتح الرياض عام 1902، التي استعاد فيها الملك عبدالعزيز المدينة. ما اسمه؟","answer":"المصمك","accepted":["قصر المصمك","حصن المصمك"],"note":""},{"id":"d-p1-general-knowledge-28","category":"general-knowledge","tier":400,"prompt":"ما اسم «الكابتن ماجد» في النسخة اليابانية الأصلية؟","answer":"تسوباسا","accepted":["كابتن تسوباسا","سوباسا","تسوباسا أوزورا","كابتن سوباسا"],"note":""},{"id":"d-p1-general-knowledge-09","category":"general-knowledge","tier":400,"prompt":"من بين الدول التي لا تجري فيها أنهار دائمة طوال العام، أيها الأكبر مساحة بفارق كبير؟","answer":"السعودية","accepted":["المملكة العربية السعودية","المملكة"],"note":""},{"id":"d-p1-general-knowledge-14","category":"general-knowledge","tier":400,"prompt":"كانت سكة حديد الحجاز العثمانية تنطلق من دمشق، فأين كانت تنتهي؟","answer":"المدينة المنورة","accepted":["المدينة","طيبة"],"note":""},{"id":"d-p1-general-knowledge-04","category":"general-knowledge","tier":400,"prompt":"سطحه حار بما يكفي لإذابة الرصاص، وهو أسخن كواكب المجموعة الشمسية. ما هو؟","answer":"الزهرة","accepted":["كوكب الزهرة","فينوس"],"note":""},{"id":"d-p1-general-knowledge-08","category":"general-knowledge","tier":400,"prompt":"ما اسم أعلى نقطة في السعودية رسمياً، بارتفاع 3015 متراً؟","answer":"جبل السودة","accepted":["السودة","جبال السودة"],"note":""},{"id":"d-p1-general-knowledge-13","category":"general-knowledge","tier":400,"prompt":"قبل أن يتحول اسم بلادنا بمرسوم إلى الاسم الذي نعرفه اليوم، ماذا كان اسمها الرسمي؟","answer":"مملكة الحجاز ونجد وملحقاتها","accepted":["مملكة الحجاز ونجد","مملكة نجد والحجاز","مملكة نجد والحجاز وملحقاتها"],"note":"يُقبل دون «وملحقاتها» وبتقديم نجد على الحجاز."},{"id":"d-p1-general-knowledge-29","category":"general-knowledge","tier":600,"prompt":"أطلق رئيس دولة عربية لقب «فنان العرب» على محمد عبده في حفلة خلال الثمانينات. ما هذه الدولة؟","answer":"تونس","accepted":["الجمهورية التونسية"],"note":"أطلق اللقب الرئيس التونسي الحبيب بورقيبة."},{"id":"d-p1-general-knowledge-32","category":"general-knowledge","tier":600,"prompt":"اسم «الشاورما» تعريب لكلمة تركية عثمانية، فما معناها الحرفي؟","answer":"التدوير","accepted":["الدوران","اللف","الدوار","يدور","يلف"],"note":""},{"id":"d-p1-general-knowledge-35","category":"general-knowledge","tier":600,"prompt":"ابتكر سيزر كارديني سلطة «السيزر» عام 1924 في مطعمه. في أي دولة كان ذلك المطعم؟","answer":"المكسيك","accepted":["مكسيكو","تيخوانا"],"note":""},{"id":"d-p1-general-knowledge-39","category":"general-knowledge","tier":600,"prompt":"بحسب «غينيس» حتى 2026، ما أقدم مؤسسة تعليمية ما زالت تعمل في العالم؟","answer":"جامعة القرويين","accepted":["القرويين","جامع القرويين"],"note":"لا يُقبل «القيروان» فهي مدينة في تونس."},{"id":"d-p1-general-knowledge-05","category":"general-knowledge","tier":600,"prompt":"ما اسم أصغر عظمة في جسم الإنسان؟","answer":"الركاب","accepted":["عظمة الركاب","عظم الركاب"],"note":""},{"id":"d-p1-general-knowledge-10","category":"general-knowledge","tier":400,"prompt":"أي دولة تملك أطول خط ساحلي في العالم؟","answer":"كندا","accepted":[],"note":""},{"id":"d-p1-general-knowledge-19","category":"general-knowledge","tier":600,"prompt":"يحمل كتاب «كليلة ودمنة» اسمي حيوانين من النوع نفسه. ما هذا الحيوان؟","answer":"ابن آوى","accepted":["بنات آوى","الواوي","ابنا آوى","أبناء آوى"],"note":"لا يُقبل «الثعلب» أو «الذئب»."},{"id":"d-p1-general-knowledge-30","category":"general-knowledge","tier":600,"prompt":"ما الفيلم الذي افتُتح به أول عرض سينمائي عام في السعودية بعد عودة السينما، في أبريل 2018؟","answer":"بلاك بانثر","accepted":["النمر الأسود","بلاك بانذر","بلاك بنثر"],"note":""},{"id":"d-p1-general-knowledge-34","category":"general-knowledge","tier":200,"prompt":"مدينة ساحلية يمنية اشتهرت قديماً بتجارة البن، ومنها أخذت قهوة «موكا» اسمها. ما هي؟","answer":"المخا","accepted":["المخاء"],"note":""}],"reserve":[{"id":"d-p1-saudi-01","category":"saudi","tier":200,"prompt":"في شعار المملكة، ما الذي يرمز إلى الحيوية والنماء والصبر؟","answer":"النخلة","accepted":["النخل"],"note":""},{"id":"d-p1-saudi-06","category":"saudi","tier":200,"prompt":"ما اسم أكبر صحراء رملية متصلة في العالم؟","answer":"الربع الخالي","accepted":["الربع"],"note":""},{"id":"d-p1-saudi-08","category":"saudi","tier":400,"prompt":"أكمل لقب مدينة أبها: سيدة…","answer":"الضباب","accepted":["سيدة الضباب"],"note":""},{"id":"d-p1-saudi-19","category":"saudi","tier":400,"prompt":"في أي عاصمة عربية تأسست منظمة «أوبك» عام 1960، وكانت السعودية من أعضائها الخمسة الأوائل؟","answer":"بغداد","accepted":[],"note":""},{"id":"d-p1-saudi-31","category":"saudi","tier":200,"prompt":"كم ريالاً يساوي الدولار الأمريكي في سعر الربط الثابت المعمول به منذ عام 1986؟","answer":"3.75","accepted":["3.75 ريال","ثلاثة وثلاثة أرباع","3 ريالات و75 هللة","ثلاثة ريالات وخمسة وسبعون هللة","ثلاثة وخمسة وسبعين"],"note":""},{"id":"d-p1-saudi-36","category":"saudi","tier":200,"prompt":"من هو أول رائد فضاء عربي، وأول رائد فضاء مسلم؟","answer":"سلطان بن سلمان","accepted":["الأمير سلطان بن سلمان","الأمير سلطان"],"note":""},{"id":"d-p1-saudi-38","category":"saudi","tier":400,"prompt":"ما أول موقع سعودي أُدرج في قائمة التراث العالمي لليونسكو؟","answer":"مدائن صالح","accepted":["الحجر","موقع الحجر"],"note":"«العلا» وحدها لا تكفي"},{"id":"d-p1-football-saudi-15","category":"football-saudi","tier":200,"prompt":"إلى أي نادٍ سعودي انتقل كريم بنزيما عام 2023؟","answer":"الاتحاد","accepted":["العميد","نادي الاتحاد","اتحاد جدة"],"note":""},{"id":"d-p1-football-saudi-17","category":"football-saudi","tier":200,"prompt":"نجم فرنسي أمضى سبعة مواسم مع تشيلسي، ثم انتقل إلى الدوري السعودي عام 2023. من هو؟","answer":"نغولو كانتي","accepted":["كانتي","انغولو كانتي","نجولو كانتي"],"note":""},{"id":"d-p1-football-saudi-23","category":"football-saudi","tier":200,"prompt":"حتى نهاية موسم 2025-2026، من يتصدر هدافي الدوري السعودي عبر كل الحقب منذ 1976-1977؟","answer":"ماجد عبدالله","accepted":["ماجد عبد الله","ماجد","السهم الملتهب"],"note":"السؤال عن المتصدر لا عن الرقم؛ المصادر تختلف في رصيده (178 أو 189 هدفاً)، وقائمة رابطة المحترفين منذ 2008 وحدها تضع السومة أولاً."},{"id":"d-p1-football-saudi-25","category":"football-saudi","tier":200,"prompt":"افتتح نجم برازيلي مشواره الرسمي مع الأهلي بهاتريك في مرمى الحزم عام 2023. من هو؟","answer":"روبرتو فيرمينو","accepted":["فيرمينو","فرمينو"],"note":""},{"id":"d-p1-football-saudi-28","category":"football-saudi","tier":400,"prompt":"حتى نهاية موسم 2025-2026، من ثاني هدافي الدوري السعودي عبر كل الحقب، وقد لعب للوحدة والشباب والهلال؟","answer":"ناصر الشمراني","accepted":["الشمراني"],"note":"المقصود الترتيب عبر كل الحقب؛ قائمة رابطة المحترفين (منذ 2008) وحدها تضعه ثالثاً."},{"id":"d-p1-football-saudi-29","category":"football-saudi","tier":200,"prompt":"بماذا يُلقّب ملعب مدينة الملك عبدالله الرياضية في جدة؟","answer":"الجوهرة المشعة","accepted":["الجوهرة","ملعب الجوهرة"],"note":""},{"id":"d-p1-general-knowledge-03","category":"general-knowledge","tier":200,"prompt":"طعام حلو عُثر على عينات منه في مواقع أثرية، وثبت أنها ما زالت صالحة للأكل بعد آلاف السنين. ما هو؟","answer":"العسل","accepted":[],"note":""},{"id":"d-p1-general-knowledge-06","category":"general-knowledge","tier":200,"prompt":"مدينة واحدة على قارتين، يعيش نحو ثلثي سكانها في أوروبا والباقون في آسيا. ما هي؟","answer":"إسطنبول","accepted":["إستانبول","اسطمبول"],"note":""},{"id":"d-p1-general-knowledge-12","category":"general-knowledge","tier":200,"prompt":"ست من عجائب الدنيا السبع القديمة اندثرت، وبقيت واحدة فقط حتى اليوم. ما هي؟","answer":"الهرم الأكبر","accepted":["هرم خوفو","هرم الجيزة الأكبر","أهرامات الجيزة","الأهرامات","الهرم"],"note":"يُقبل «الأهرامات» أو «هرم خوفو»."},{"id":"d-p1-general-knowledge-17","category":"general-knowledge","tier":200,"prompt":"قصة واحدة تجمع كل حكايات «ألف ليلة وليلة»، بطلتها زوجة الملك. ما اسمها؟","answer":"شهرزاد","accepted":["شهرازاد","شيرزاد"],"note":""},{"id":"d-p1-general-knowledge-36","category":"general-knowledge","tier":400,"prompt":"من أول إنسان سافر إلى الفضاء الخارجي، في أول رحلة فضائية مأهولة ناجحة؟","answer":"يوري غاغارين","accepted":["غاغارين","جاجارين","يوري جاجارين","قاقارين"],"note":""}]};
 const DATA = BANK || sampleBank();
 
 // Public test build: the worked examples from content/STYLE_GUIDE.md plus clearly marked placeholders.
@@ -153,12 +163,47 @@ function fresh(names) {
   return {
     screen: 'setup', teams: [0, 1].map((i) => ({ name: (names && names[i]) || (i ? 'البنات' : 'الشباب'), score: 0, ll: [], used: [], correct: 0, steals: 0 })),
     picks: [], tiles: [], turn: 0, armed: null, red: false, cur: null, settings: { qTime: 60, sTime: 15 },
-    usedQ: [], history: [], confirmEnd: false, pen: null
+    usedQ: [], history: [], adjust: false, pen: null
   };
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
 function load() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { return null; } }
-function snapshot() { const { history, ...rest } = S; S.history = [...history.slice(-19), JSON.stringify(rest)]; }
+function liveSave() { const s = load(); return s && s.screen !== 'end' && s.tiles && s.tiles.length ? s : null; }
+// Every step that changes the game pushes the state before it, so «تراجع» / Z can walk back (last 30 steps).
+function snapshot() { const { history, ...rest } = S; S.history = [...history.slice(-29), JSON.stringify(rest)]; }
+const topScreen = () => (S.history.length ? JSON.parse(S.history[S.history.length - 1]).screen : null);
+
+// Two-tap confirm for actions that throw work away: the second tap must come 0.4–4 s after the first
+// (a quick double-tap doesn't count), and the button shows «متأكدين؟» in between.
+const pending = {};
+function twoStep(key) {
+  const now = Date.now(), t = pending[key];
+  if (t && now - t <= 400) return false;
+  if (t && now - t < 4000) { delete pending[key]; return true; }
+  pending[key] = now;
+  setTimeout(() => { if (pending[key] === now) { delete pending[key]; render(); } }, 4000);
+  return false;
+}
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3500);
+}
+// Why a team's lifeline can't be tapped right now ('' = it can).
+function llWhy(t, id) {
+  const L = LL[id], onTurn = S.turn === t, mine = `«${L.name}»`;
+  if (S.teams[t].used.includes(id)) return `${mine} انستخدمت خلاص`;
+  if (L.when === 'after') return `${mine} تنستخدم بعد ما ينفتح السؤال، وتلقونها تحت المؤقت`;
+  if (id === 'red') {
+    if (onTurn) return `${mine} ترفعونه في دور الخصم، قبل ما يختارون خانتهم`;
+    if (S.armed && ['warrit', 'elder'].includes(S.armed.id)) return `ما ينفع ${mine} مع «${LL[S.armed.id].name}» على نفس السؤال`;
+    return '';
+  }
+  if (!onTurn) return `${mine} تنستخدم في دوركم، قبل ما تختارون الخانة`;
+  if (S.red && ['warrit', 'elder'].includes(id)) return `ما ينفع ${mine} والخصم رافع عليكم «الكرت الأحمر»`;
+  return '';
+}
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const catName = (slug) => (DATA.categories.find((c) => c.slug === slug) || {}).name || slug;
@@ -176,16 +221,16 @@ function steps(n) { return `<div class="steps">${['الفرق والفئات', '
 // ---- screens -----------------------------------------------------------------
 const screens = {
   home() {
-    const saved = load();
-    const live = saved && saved.screen !== 'end' && saved.tiles && saved.tiles.length;
+    const live = liveSave();
     return `<div class="screen" style="padding:0;gap:0">${band()}
       <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;text-align:center">
         <div class="row" aria-hidden="true" style="gap:16px"><span style="width:30px;height:30px;transform:rotate(45deg);background:var(--sand)"></span><span style="width:30px;height:30px;transform:rotate(45deg);background:var(--saffron)"></span><span style="width:30px;height:30px;transform:rotate(45deg);background:var(--madder)"></span></div>
         <h1 class="disp" style="margin:0;font-size:160px">صحصح</h1>
         <p style="margin:0;font-size:30px;color:var(--wool2)">لعبة أسئلة للجمعة · نسخة تجريبية</p>
         <div class="row" style="gap:20px">
-          <button class="btn" data-a="new" type="button">لعبة جديدة</button>
-          ${live ? '<button class="btn ghost" data-a="resume" type="button">كمّل اللعبة</button>' : ''}
+          ${live
+            ? `<button class="btn" data-a="resume" type="button">كمّل اللعبة</button><button class="btn ghost" data-a="new" type="button">${pending.new ? 'متأكدين؟ اللعبة المحفوظة بتنمسح' : 'لعبة جديدة'}</button>`
+            : '<button class="btn" data-a="new" type="button">لعبة جديدة</button>'}
         </div>
         <p style="margin:0;font-size:20px;color:var(--dim);max-width:1150px">${BANK ? `فيها ${DATA.questions.length} سؤال من ${esc(DATA.label)} في ${DATA.categories.length} فئات.` : 'نسخة لتجربة طريقة اللعب: أغلب الأسئلة أمثلة شكلية، والأسئلة الحقيقية المدققة تنضاف بعدين.'} جهاز واحد متوصّل بالتلفزيون، وواحد منكم يتحكم ويلعب مع فريقه.</p>
         ${FS_OK ? '<button class="btn ghost small" data-a="fullscreen" type="button">ملء الشاشة</button>' : (navigator.standalone ? '' : '<p style="margin:0;font-size:20px;color:var(--dim)">على الآيفون: زر المشاركة ثم «إضافة إلى الشاشة الرئيسية» عشان تفتح ملء الشاشة بدون شريط المتصفح.</p>')}
@@ -252,17 +297,19 @@ const screens = {
     const panel = (t) => {
       const team = S.teams[t];
       const onTurn = S.turn === t;
+      const adj = (d) => `<button class="ll" type="button" data-a="pts" data-team="${t}" data-d="${d}" aria-label="${d > 0 ? 'زِد' : 'أنقص'} 100 لـ${esc(team.name)}" style="font-family:var(--f-ui);font-size:15px">${d > 0 ? '+100' : '−100'}</button>`;
       return `<div class="panel" style="outline:${onTurn ? `4px solid ${TEAM_COLORS[t]}` : '1px solid var(--line)'}">
         <div style="display:flex;flex-direction:column;gap:10px">
           <div class="row" style="gap:14px"><span class="disp" style="font-size:40px;color:${TEAM_COLORS[t]}">${esc(team.name)}</span>${onTurn ? `<span style="padding:3px 14px;border-radius:99px;background:${TEAM_COLORS[t]};color:var(--ink);font-size:18px;font-weight:600">دوركم</span>` : ''}</div>
-          <div class="row" style="gap:10px">${team.ll.map((id) => {
+          <div class="lls">${team.ll.map((id) => {
             const used = team.used.includes(id);
             const armed = (S.armed && S.armed.id === id && S.armed.team === t) || (id === 'red' && S.red && S.red.team === t);
-            const usable = !used && ((onTurn && LL[id].when === 'before') || (!onTurn && id === 'red'));
-            return `<button class="ll ${used ? 'used' : ''} ${armed ? 'armed' : ''}" type="button" data-a="arm" data-team="${t}" data-id="${id}" ${usable ? '' : 'disabled'} title="${LL[id].name}: ${LL[id].rule}" aria-label="${LL[id].name}">${icon(id)}</button>`;
+            const why = armed ? '' : llWhy(t, id);
+            return `<button class="lli" type="button" data-a="arm" data-team="${t}" data-id="${id}" ${why ? `aria-disabled="true" data-why="${esc(why)}"` : ''} aria-label="${LL[id].name}">
+              <span class="ll ${used ? 'used' : ''} ${armed ? 'armed' : ''}" style="${!why && !armed ? `border-color:${TEAM_COLORS[t]}` : ''}">${icon(id)}</span><span class="nm">${LL[id].name}</span></button>`;
           }).join('')}</div>
         </div>
-        <span class="disp" style="font-size:88px;line-height:1.1;font-variant-numeric:tabular-nums">${team.score}</span>
+        <div class="row" style="gap:12px">${S.adjust ? adj(-100) : ''}<span class="disp" style="font-size:88px;line-height:1.1;font-variant-numeric:tabular-nums">${team.score}</span>${S.adjust ? adj(100) : ''}</div>
       </div>`;
     };
     const cols = S.picks.map((p) => {
@@ -281,7 +328,7 @@ const screens = {
     const armedNote = S.armed ? `<span class="banner">${icon(S.armed.id, 20)} ${LL[S.armed.id].name} جاهزة لـ${esc(S.teams[S.armed.team].name)} · اختاروا الخانة</span>` : '';
     const redNote = S.red ? `<span class="banner" style="border-color:var(--madder)">الكرت الأحمر من ${esc(S.teams[S.red.team].name)}</span>` : '';
     return `<div class="screen" style="padding:32px 44px;gap:20px">
-      <div class="flex-h" style="display:grid;grid-template-columns:minmax(0,1fr) 420px minmax(0,1fr);gap:24px;height:150px">
+      <div class="flex-h" style="display:grid;grid-template-columns:minmax(0,1fr) 420px minmax(0,1fr);gap:24px;height:180px">
         ${panel(0)}
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px"><span style="font-size:20px;color:var(--dim)">الدور على</span><span class="disp" style="font-size:48px;color:${TEAM_COLORS[S.turn]}">${esc(S.teams[S.turn].name)}</span><span style="font-size:19px;color:var(--dim)">باقي <b class="disp" style="color:var(--wool)">${left}</b> خانة من ${S.tiles.length}</span></div>
         ${panel(1)}
@@ -290,7 +337,8 @@ const screens = {
       <div class="row flex-h" style="height:64px;border-top:1px solid var(--chip);padding-top:12px">
         <span style="padding:6px 14px;border-radius:10px;background:var(--chip);color:var(--dim);font-size:17px">التحكم</span>
         <button class="btn ghost small" type="button" data-a="undo" ${S.history.length ? '' : 'disabled'}>تراجع <kbd>Z</kbd></button>
-        <button class="btn ghost small" type="button" data-a="end" style="color:var(--bad)">${S.confirmEnd ? 'متأكدين؟ اضغط مرة ثانية' : 'إنهاء اللعبة'}</button>
+        <button class="btn ghost small" type="button" data-a="adjust" ${S.adjust ? 'style="border-color:var(--saffron)"' : ''}>${S.adjust ? 'خلصت تعديل النقاط' : 'تعديل النقاط'}</button>
+        <button class="btn ghost small" type="button" data-a="end" style="color:var(--bad)">${pending.end ? 'متأكدين؟ اضغط مرة ثانية' : 'إنهاء اللعبة'}</button>
         ${armedNote}${redNote}<span class="spacer"></span>
         <span class="hint" style="font-size:18px;color:var(--dim)">المس الخانة لفتحها · قبلها تقدرون تفعّلون وسيلة من لوحة فريقكم</span>
       </div></div>`;
@@ -310,8 +358,9 @@ const screens = {
     if (c.red) notes.push(`الكرت الأحمر: ${esc(S.teams[c.red.team].name)} يختارون لاعب من ${esc(S.teams[answering].name)} يجاوب لحاله`);
     if (c.two) notes.push('جوابين: لكم محاولتين');
     if (c.swapped) notes.push('انبدّل السؤال');
-    const after = S.teams[answering].ll.filter((id) => LL[id].when === 'after' && !S.teams[answering].used.includes(id));
+    const after = c.phase === 'main' ? S.teams[answering].ll.filter((id) => LL[id].when === 'after' && !S.teams[answering].used.includes(id)) : [];
     const canSwap = (id) => id !== 'swap' || pool(tile.cat, tile.tier).length > 0;
+    const canSteal = c.phase === 'main' && !(c.armed && c.armed.id === 'warrit');
     return `<div class="screen" style="gap:26px">
       <div class="row" style="height:68px;gap:14px">
         <span style="height:64px;padding:0 24px;border-radius:18px;background:var(--raised);display:flex;align-items:center" class="disp"><span style="font-size:30px">${esc(catName(tile.cat))}</span></span>
@@ -323,18 +372,20 @@ const screens = {
       <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 80px"><p style="margin:0;max-width:1560px;text-align:center;font-weight:500;font-size:66px;line-height:1.5;text-wrap:balance">${esc(qq.prompt)}</p></div>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="row" style="align-items:flex-end">
-          <span class="disp" style="font-size:112px;line-height:1;font-variant-numeric:tabular-nums;color:${c.phase === 'main' && c.left <= 5 ? 'var(--madder)' : 'var(--wool)'}">${c.left}</span>
+          <span class="disp" id="t-left" style="font-size:112px;line-height:1;font-variant-numeric:tabular-nums;color:${c.phase === 'main' && c.left <= 5 ? 'var(--madder)' : 'var(--wool)'}">${c.left}</span>
           <span style="font-size:28px;font-weight:600;color:${color}">${label}</span><span class="spacer"></span>
           ${after.length ? `<span style="font-size:19px;color:var(--dim)">مساعدات ${esc(S.teams[answering].name)}</span>` : ''}
           ${after.map((id) => `<button class="btn ghost small" type="button" data-a="use-after" data-id="${id}" ${canSwap(id) ? '' : 'disabled'} style="border-color:${TEAM_COLORS[answering]};display:inline-flex;align-items:center;gap:10px"><span class="ll" style="width:34px;height:34px;background:none">${icon(id)}</span>${LL[id].name}</button>`).join('')}
         </div>
-        <div class="bar" role="progressbar" aria-label="الوقت" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${c.left}"><i style="background:${color};transform:scaleX(${frac})"></i></div>
+        <div class="bar" id="t-bar" role="progressbar" aria-label="الوقت" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${c.left}"><i id="t-fill" style="background:${color};transform:scaleX(${frac})"></i></div>
       </div>
       <div class="row flex-h" style="height:96px;border-top:1px solid var(--chip);padding-top:16px">
         <span style="padding:6px 14px;border-radius:10px;background:var(--chip);color:var(--dim);font-size:17px">التحكم</span>
         <button class="btn ghost small" type="button" data-a="back-q">رجّعها (فتحتها بالغلط)</button>
-        <button class="btn ghost small" type="button" data-a="pause">${c.running ? 'وقّف المؤقت' : 'كمّل المؤقت'}</button>
+        ${c.phase === 'over' ? '' : `<button class="btn ghost small" type="button" data-a="pause">${c.running ? 'وقّف المؤقت' : 'كمّل المؤقت'}</button>`}
+        ${topScreen() === 'question' ? '<button class="btn ghost small" type="button" data-a="undo">تراجع <kbd>Z</kbd></button>' : ''}
         <span class="spacer"></span>
+        ${canSteal ? `<button class="btn ghost small" type="button" data-a="to-steal" style="border-color:${TEAM_COLORS[other(answering)]}">غلطوا؟ افتح السرقة</button>` : ''}
         <button class="btn" type="button" data-a="reveal">الإجابة <kbd style="border-color:var(--ink);color:var(--ink)">Space</kbd></button>
       </div></div>`;
   },
@@ -348,17 +399,18 @@ const screens = {
       <span style="display:flex;flex-direction:column"><span class="disp" style="font-size:46px;${o.color ? `color:${o.color}` : ''}">${o.title}</span><span style="font-size:22px;color:var(--wool2)">${o.sub}</span></span>
       <span class="kbig">${o.key}</span></button>`;
     return `<div class="screen" style="gap:26px">
-      <div class="row" style="height:68px;gap:14px">
+      <div class="row flex-h" style="height:68px;gap:14px">
         <span class="disp" style="height:64px;padding:0 24px;border-radius:18px;background:var(--raised);display:flex;align-items:center;font-size:30px">${esc(catName(tile.cat))}</span>
         <span class="t${tile.tier}" style="height:64px;padding:0 22px;border-radius:18px;display:flex;align-items:center;gap:14px"><span class="disp" style="font-size:36px">${tile.tier}</span>${pips(tile.tier)}</span>
-        <span class="spacer"></span><p style="margin:0;max-width:1100px;font-size:26px;color:#BFAE98;text-align:left">${esc(qq.prompt)}</p>
+        <span class="spacer"></span><p style="margin:0;max-width:1000px;font-size:26px;color:#BFAE98;text-align:left">${esc(qq.prompt)}</p>
+        <button class="btn ghost small" type="button" data-a="undo">تراجع <kbd>Z</kbd></button>
       </div>
       <div style="flex:1;display:flex;align-items:center;justify-content:center">
         <div class="pop" style="width:1240px;border-radius:32px;overflow:hidden;background:var(--raised);box-shadow:0 40px 90px -30px rgba(0,0,0,.8)">
           <div class="sadu" aria-hidden="true"></div>
           <div style="padding:40px 72px 44px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
             <span style="font-size:26px;color:var(--dim)">الجواب</span>
-            <span class="disp" style="font-size:110px;color:var(--saffron)">${esc(qq.answer)}</span>
+            <span class="disp" style="font-size:${qq.answer.length > 18 ? 88 : 110}px;color:var(--saffron)">${esc(qq.answer)}</span>
             ${qq.accepted && qq.accepted.length ? `<span style="font-size:26px;color:var(--wool2)">يُقبل كذلك: ${qq.accepted.map(esc).join(' · ')}</span>` : ''}
             ${qq.note ? `<span style="font-size:24px;color:var(--wool2)">${esc(qq.note)}</span>` : ''}
           </div>
@@ -389,6 +441,7 @@ const screens = {
         <div class="row" style="gap:16px">
           ${w === null ? '<button class="btn" type="button" data-a="pens">ابدأ ضربات الترجيح</button>' : ''}
           <button class="btn ${w === null ? 'ghost' : ''}" type="button" data-a="again">لعبة جديدة</button>
+          ${S.history.length ? '<button class="btn ghost small" type="button" data-a="undo">تراجع (انتهت بالغلط)</button>' : ''}
           <button class="btn ghost small" type="button" data-a="home">الرئيسية</button>
         </div>
       </div></div>`;
@@ -404,7 +457,7 @@ const screens = {
       return `<div class="screen" style="align-items:center;justify-content:center;text-align:center;gap:30px">${row(0)}${row(1)}
         <h1 class="disp pop" style="margin:0;font-size:${P.winner === -1 ? 120 : 160}px;color:${P.winner === -1 ? 'var(--saffron)' : TEAM_COLORS[P.winner]}">${P.winner === -1 ? 'خلصت الأسئلة… تعادل' : esc(S.teams[P.winner].name)}</h1>
         ${P.winner === -1 ? '' : '<span class="disp" style="font-size:56px;color:var(--saffron)">فازوا بضربات الترجيح!</span>'}
-        <div class="row" style="gap:16px"><button class="btn" type="button" data-a="again">لعبة جديدة</button><button class="btn ghost small" type="button" data-a="home">الرئيسية</button></div></div>`;
+        <div class="row" style="gap:16px"><button class="btn" type="button" data-a="again">لعبة جديدة</button><button class="btn ghost small" type="button" data-a="undo">تراجع</button><button class="btn ghost small" type="button" data-a="home">الرئيسية</button></div></div>`;
     }
     return `<div class="screen" style="gap:28px">
       <div class="row"><h1 class="disp" style="margin:0;font-size:48px">ضربات الترجيح</h1><span class="spacer"></span><span style="font-size:24px;color:var(--wool2)">الدور على <b style="color:${TEAM_COLORS[P.turn]}">${esc(S.teams[P.turn].name)}</b></span></div>
@@ -415,6 +468,7 @@ const screens = {
         ${P.revealed ? `<span class="disp pop" style="font-size:90px;color:var(--saffron)">${esc(qq.answer)}</span>` : ''}
       </div>
       <div class="row" style="justify-content:center;gap:20px">
+        <button class="btn ghost small" type="button" data-a="undo">تراجع</button>
         ${P.revealed
           ? `<button class="btn" type="button" data-a="kick" data-ok="1" style="background:${TEAM_COLORS[P.turn]}">جاوبوا صح</button><button class="btn ghost" type="button" data-a="kick" data-ok="0">غلطوا</button>`
           : '<button class="btn" type="button" data-a="pen-reveal">الإجابة</button>'}
@@ -481,7 +535,7 @@ function resolve(r) {
   }
   if (winner !== null) S.teams[winner].score += points;
   Object.assign(tile, { done: true, winner, points });
-  S.cur = null; S.turn = other(S.turn); S.confirmEnd = false;
+  S.cur = null; S.turn = other(S.turn);
   S.screen = S.tiles.every((t) => t.done) ? 'end' : 'board';
 }
 function openTile(id) {
@@ -490,7 +544,7 @@ function openTile(id) {
   if (S.armed) S.teams[S.armed.team].used.push(S.armed.id);
   if (S.red) S.teams[S.red.team].used.push('red');
   S.cur = { tile: id, qid: tile.qid, phase: 'main', left: S.settings.qTime, running: true, armed: S.armed, red: S.red, two: false, swapped: false };
-  S.armed = null; S.red = null; S.confirmEnd = false;
+  S.armed = null; S.red = null; S.adjust = false;
   S.screen = 'question';
 }
 function startPens() {
@@ -501,11 +555,13 @@ function nextPen() {
   const used = new Set(S.usedQ);
   const all = [...DATA.questions, ...DATA.reserve].filter((x) => !used.has(x.id));
   const pref = all.filter((x) => x.tier === 400);
-  const pick = (pref.length ? pref : all)[0];
+  const from = pref.length ? pref : all;
+  const pick = from[Math.floor(Math.random() * from.length)];
   if (!pick) { S.pen.winner = -1; return; }
   S.usedQ.push(pick.id); S.pen.qid = pick.id; S.pen.revealed = false;
 }
 function kick(ok) {
+  snapshot();
   const P = S.pen;
   P.kicks[P.turn].push(ok);
   const [a, b] = P.kicks.map((k) => k.filter(Boolean).length);
@@ -523,11 +579,19 @@ function kick(ok) {
 // ---- timer -------------------------------------------------------------------
 function tick() {
   if (!S || S.screen !== 'question' || !S.cur || !S.cur.running) return;
-  const c = S.cur;
+  const c = S.cur, phase = c.phase;
   if (c.left > 1) c.left--;
   else if (c.phase === 'main' && !(c.armed && c.armed.id === 'warrit')) { c.phase = 'steal'; c.left = S.settings.sTime; }
   else { c.phase = 'over'; c.left = 0; c.running = false; }
-  render();
+  // Repaint only the clock: re-rendering the screen every second resets focus and can swallow a tap on iPad.
+  const num = document.getElementById('t-left');
+  if (c.phase !== phase || !num) { render(); return; }
+  const total = c.phase === 'steal' ? S.settings.sTime : S.settings.qTime;
+  num.textContent = c.left;
+  num.style.color = c.phase === 'main' && c.left <= 5 ? 'var(--madder)' : 'var(--wool)';
+  document.getElementById('t-fill').style.transform = `scaleX(${Math.max(0, Math.min(1, c.left / total))})`;
+  document.getElementById('t-bar').setAttribute('aria-valuenow', c.left);
+  save();
 }
 
 // ---- rendering & events -----------------------------------------------------
@@ -538,6 +602,7 @@ function render() {
 stage.addEventListener('click', (e) => {
   const b = e.target.closest('[data-a]');
   if (!b || b.disabled) return;
+  if (b.getAttribute('aria-disabled') === 'true') { toast(b.dataset.why || 'مو متاحة الحين'); return; }
   const a = b.dataset.a;
   if (a === 'fullscreen') {
     const root = document.documentElement;
@@ -545,7 +610,7 @@ stage.addEventListener('click', (e) => {
     if (go) Promise.resolve(go.call(root)).catch(() => {});
     return;
   }
-  if (a === 'new') { S = fresh(); }
+  if (a === 'new') { if (!liveSave() || twoStep('new')) S = fresh(); }
   else if (a === 'resume') { S = load(); }
   else if (a === 'home') { S = null; stage.innerHTML = screens.home(); return; }
   else if (a === 'again') { S = fresh(S.teams.map((t) => t.name)); }
@@ -562,6 +627,7 @@ stage.addEventListener('click', (e) => {
   else if (a === 'll-pick') {
     const t = Number(b.dataset.team), id = b.dataset.id, mine = S.teams[t].ll;
     S.teams[t].ll = mine.includes(id) ? mine.filter((x) => x !== id) : mine.length < 3 ? [...mine, id] : mine;
+    if (stage.classList.contains('tight') && S.teams[t].ll.includes(id) && !mine.includes(id)) toast(`${LL[id].name}: ${LL[id].rule}`);
   }
   else if (a === 'set') {
     const k = b.dataset.key;
@@ -571,14 +637,34 @@ stage.addEventListener('click', (e) => {
   else if (a === 'arm') {
     const t = Number(b.dataset.team), id = b.dataset.id;
     if (id === 'red') S.red = S.red ? null : { team: t };
-    else S.armed = S.armed && S.armed.id === id ? null : { team: t, id };
+    else {
+      const was = S.armed && S.armed.id;
+      S.armed = was === id ? null : { team: t, id };
+      if (was && was !== id) toast(`«${LL[id].name}» بدال «${LL[was].name}»: وسيلة وحدة قبل السؤال`);
+    }
   }
   else if (a === 'open') openTile(Number(b.dataset.tile));
   else if (a === 'undo') { const last = S.history.pop(); if (last) { const h = S.history; S = { ...JSON.parse(last), history: h }; } }
-  else if (a === 'end') { if (S.confirmEnd) S.screen = 'end'; else S.confirmEnd = true; }
+  else if (a === 'end') { if (twoStep('end')) { snapshot(); S.screen = 'end'; S.adjust = false; } }
+  else if (a === 'adjust') S.adjust = !S.adjust;
+  else if (a === 'pts') { snapshot(); S.teams[Number(b.dataset.team)].score += Number(b.dataset.d); }
   else if (a === 'pause') { if (S.cur.phase !== 'over') S.cur.running = !S.cur.running; }
-  else if (a === 'back-q') { const last = S.history.pop(); if (last) { const h = S.history; S = { ...JSON.parse(last), history: h }; } }
+  else if (a === 'to-steal') { snapshot(); Object.assign(S.cur, { phase: 'steal', left: S.settings.sTime, running: true }); }
+  else if (a === 'back-q') {
+    // Back to the board as it was before this tile opened (past any lifeline steps), with a fresh question on the tile:
+    // everyone already saw this one.
+    const tileId = S.cur.tile, seen = S.usedQ;
+    let snap = null;
+    while (S.history.length) { const s = JSON.parse(S.history.pop()); if (s.screen === 'board') { snap = s; break; } }
+    if (snap) {
+      S = { ...snap, history: S.history, usedQ: [...new Set([...snap.usedQ, ...seen])] };
+      const tile = S.tiles.find((t) => t.id === tileId);
+      const nq = draw(tile.cat, tile.tier);
+      if (nq) tile.qid = nq;
+    }
+  }
   else if (a === 'use-after') {
+    snapshot();
     const id = b.dataset.id; const c = S.cur;
     const answering = c.armed && c.armed.id === 'warrit' ? other(S.turn) : S.turn;
     S.teams[answering].used.push(id);
@@ -589,16 +675,16 @@ stage.addEventListener('click', (e) => {
       if (nq) { tile.qid = nq; c.qid = nq; c.swapped = true; c.phase = 'main'; c.left = S.settings.qTime; c.running = true; }
     }
   }
-  else if (a === 'reveal') { S.cur.running = false; S.screen = 'answer'; }
+  else if (a === 'reveal') { snapshot(); S.cur.running = false; S.screen = 'answer'; }
   else if (a === 'resolve') resolve(b.dataset.r);
-  else if (a === 'pens') { startPens(); S.screen = 'pens'; }
+  else if (a === 'pens') { snapshot(); startPens(); S.screen = 'pens'; }
   else if (a === 'pen-reveal') S.pen.revealed = true;
   else if (a === 'kick') kick(b.dataset.ok === '1');
   render();
 });
 stage.addEventListener('input', (e) => {
   const t = e.target.closest('[data-name]');
-  if (t && S) { S.teams[Number(t.dataset.name)].name = t.value || (t.dataset.name === '0' ? 'الفريق الأول' : 'الفريق الثاني'); save(); }
+  if (t && S) { S.teams[Number(t.dataset.name)].name = t.value || (t.dataset.name === '0' ? 'الشباب' : 'البنات'); save(); }
 });
 document.addEventListener('keydown', (e) => {
   if (!S || (e.target && e.target.tagName === 'INPUT')) return;
@@ -609,7 +695,7 @@ document.addEventListener('keydown', (e) => {
     const o = opts.find((x) => String(x.key) === e.key);
     if (o) click(`[data-a="resolve"][data-r="${o.r}"]`);
   }
-  else if (S.screen === 'board' && (e.key === 'z' || e.key === 'Z')) click('[data-a="undo"]');
+  if (e.key === 'z' || e.key === 'Z') click('[data-a="undo"]');
 });
 
 // ---- fit the TV stage to any screen -------------------------------------------
@@ -623,11 +709,18 @@ function fit() {
   stage.style.height = sh + 'px';
   const s = Math.min(W / sw, H / sh);
   stage.style.transform = `scale(${s})`;
-  stage.classList.toggle('compact', s < 0.6);
+  // Touch screens get the bigger controls up to iPad scale (≈0.6), not only phones.
+  const coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const compact = s < 0.6 || (coarse && s < 0.8);
+  stage.classList.toggle('compact', compact);
+  stage.classList.toggle('tight', compact && sh < 1200);
   const portrait = window.innerWidth < window.innerHeight;
   document.getElementById('rotate').hidden = !(portrait && !fit.dismissed);
 }
 document.getElementById('rotate-ok').addEventListener('click', () => { fit.dismissed = true; fit(); });
+// The unscaled stage is bigger than a phone, so focusing a button could scroll the frame and shift the whole game.
+// overflow:clip stops that; this catches browsers without it.
+document.getElementById('viewport').addEventListener('scroll', (e) => { e.target.scrollTop = 0; e.target.scrollLeft = 0; });
 window.addEventListener('resize', fit);
 fit();
 setInterval(tick, 1000);
